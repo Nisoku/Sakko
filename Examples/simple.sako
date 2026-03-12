@@ -1,0 +1,14 @@
+<page {
+  card {
+    heading: Welcome
+    text: "This is a simple card"
+    button(primary): "Click Me"
+  }
+  
+  grid(cols 2 gap medium): [
+    card { text: "Card 1" },
+    card { text: "Card 2" },
+    card { text: "Card 3" },
+    card { text: "Card 4" }
+  ]
+}>

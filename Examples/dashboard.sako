@@ -1,0 +1,60 @@
+<dashboard {
+  heading(xlarge): "Dashboard"
+  text(dim): "Welcome back, here is your overview."
+
+  grid(cols 3 gap large) {
+    card(curved) {
+      text(dim small): "Total Users"
+      text(bold large): "12,483"
+      badge(success large): "+4.2%"
+    }
+
+    card(curved) {
+      text(dim small): "Revenue"
+      text(bold large): "$48,290"
+      badge(accent large): "+12.7%"
+    }
+
+    card(curved) {
+      text(dim small): "Active Sessions"
+      text(bold large): "1,024"
+      badge(danger large): "-2.1%"
+    }
+  }
+
+  spacer(large)
+
+  grid(cols 2 gap large) {
+    card(curved medium) {
+      heading: "Recent Activity"
+      column(gap small): [
+        row(space-between gap medium) {
+          text: "New signup: alice@example.com"
+          text(dim small): "2m ago"
+        },
+        row(space-between gap medium) {
+          text: "Payment received: $49.99"
+          text(dim small): "15m ago"
+        },
+        row(space-between gap medium) {
+          text: "Support ticket #1042 resolved"
+          text(dim small): "1h ago"
+        },
+        row(space-between gap medium) {
+          text: "New signup: bob@example.com"
+          text(dim small): "3h ago"
+        }
+      ]
+    }
+
+    card(curved medium) {
+      heading: "Quick Actions"
+      column(gap medium) {
+        button(primary): "Create New Project"
+        button(accent): "Invite Team Member"
+        button(secondary): "View Reports"
+        button(dim): "Export Data"
+      }
+    }
+  }
+}>

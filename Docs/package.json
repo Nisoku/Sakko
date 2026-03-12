@@ -1,0 +1,17 @@
+{
+  "name": "sakko-docs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Documentation for Sakko",
+  "scripts": {
+    "dev": "docmd dev",
+    "build": "docmd build",
+    "clean": "rm -rf site",
+    "prebuild": "npm run clean"
+  },
+  "keywords": [],
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@mgks/docmd": "^0.3.11"
+  }
+}

@@ -1,0 +1,81 @@
+<settings {
+  heading(xlarge): "Settings"
+
+  card(curved medium) {
+    heading: "Appearance"
+    text(dim small): "Customize how the app looks and feels."
+
+    divider
+
+    column(gap medium) {
+      row(space-between) {
+        column(gap tiny) {
+          text(bold): "Dark Mode"
+          text(dim small): "Switch between light and dark themes"
+        }
+        toggle: ""
+      }
+
+      row(space-between) {
+        column(gap tiny) {
+          text(bold): "Compact View"
+          text(dim small): "Reduce spacing and padding"
+        }
+        toggle(checked): ""
+      }
+
+      row(space-between) {
+        column(gap tiny) {
+          text(bold): "Animations"
+          text(dim small): "Enable transition effects"
+        }
+        toggle(checked): ""
+      }
+    }
+  }
+
+  spacer(medium)
+
+  card(curved medium) {
+    heading: "Notifications"
+    text(dim small): "Choose what you want to be notified about."
+
+    divider
+
+    column(gap medium) {
+      row(space-between) {
+        text: "Push notifications"
+        checkbox(checked): ""
+      }
+
+      row(space-between) {
+        text: "Email digest"
+        checkbox(checked): ""
+      }
+
+      row(space-between) {
+        text: "SMS alerts"
+        checkbox: ""
+      }
+
+      row(space-between) {
+        text: "Marketing emails"
+        checkbox: ""
+      }
+    }
+  }
+
+  spacer(medium)
+
+  card(curved medium) {
+    heading: "Danger Zone"
+    text(dim small): "Irreversible actions. Proceed with caution."
+
+    divider
+
+    row(gap medium) {
+      button(danger): "Reset All Settings"
+      button(danger): "Delete Account"
+    }
+  }
+}>

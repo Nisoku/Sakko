@@ -1,0 +1,49 @@
+<player {
+  // Main card with horizontal layout
+  card(row medium center curved) {
+    
+    // Album artwork
+    coverart(round): "album.jpg"
+    
+    // Track info section
+    details {
+      text(bold large): "Midnight City"
+      text(dim small): "M83"
+      badge(accent large): "Synthwave"
+    }
+    
+    // Playback controls
+    controls {
+      icon-btn: play;
+      icon-btn: skip;
+      badge(accent): LIVE
+    }
+  }
+  
+  // Queue section
+  card(curved medium) {
+    heading: "Up Next"
+    
+    column(gap small): [
+      row(space-between gap medium) {
+        text: "Track 1"
+        text(dim small): "3:45"
+      },
+      row(space-between gap medium) {
+        text: "Track 2"
+        text(dim small): "4:12"
+      },
+      row(space-between gap medium) {
+        text: "Track 3"
+        text(dim small): "3:28"
+      }
+    ]
+  }
+  
+  // Controls bar
+  row(space-between gap large curved) {
+    button(dim): Library
+    button(accent): Discover
+    button(dim): Settings
+  }
+}>

@@ -1,0 +1,43 @@
+<settings-form {
+  card(curved medium) {
+    heading: "Account Settings"
+
+    column(gap medium) {
+      label: "Display Name"
+      input(placeholder "Your name"): ""
+
+      label: "Email Address"
+      input(placeholder "you@example.com" type email): ""
+
+      label: "Bio"
+      input(placeholder "Tell us about yourself"): ""
+    }
+
+    divider
+
+    column(gap small) {
+      row(space-between) {
+        text: "Email notifications"
+        toggle(checked): ""
+      }
+
+      row(space-between) {
+        text: "Dark mode"
+        toggle: ""
+      }
+
+      row(space-between) {
+        text: "Public profile"
+        checkbox(checked): ""
+      }
+    }
+
+    divider
+
+    row(gap medium) {
+      button(accent): "Save Changes"
+      button(secondary): "Cancel"
+      button(danger): "Delete Account"
+    }
+  }
+}>
