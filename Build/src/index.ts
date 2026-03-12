@@ -8,3 +8,4 @@ export type {
   ASTNode,
   Modifier,
 } from "./parser/parser";
+export type { Token, TokenType } from "./parser/tokenizer";

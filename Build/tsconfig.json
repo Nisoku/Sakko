@@ -12,9 +12,8 @@
     "declarationDir": "dist",
     "sourceMap": true,
     "moduleResolution": "bundler",
-    "isolatedModules": true,
-    "typeRoots": ["src/types"]
+    "isolatedModules": true
   },
-  "include": ["src/**/*", "src/types"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"]
 }

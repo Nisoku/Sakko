@@ -1,4 +1,4 @@
-import { tokenize } from "./tokenizer";
+import { tokenize, type Token } from "./tokenizer";
 
 export type Modifier =
   | { type: "flag"; value: string }
