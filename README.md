@@ -1,5 +1,8 @@
 # Sakko
 
+[![npm version](https://img.shields.io/npm/v/@nisoku/sakko.svg)](https://www.npmjs.com/package/@nisoku/sakko)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+
 **The modern DSL (Design Sub-Language) for describing UI trees.**
 
 Sakko is a bracket-based markup language that compiles to component trees. Write concise, readable markup. Get a structured AST. Use it with Sazami, build your own renderer, or create something entirely different.
