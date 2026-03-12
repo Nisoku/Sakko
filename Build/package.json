@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "description": "Sakko, the modern DSL (Design Sub-Language)",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Nisoku/Sakko"
+  },
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
