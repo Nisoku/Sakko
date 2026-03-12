@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationDir": "dist",
+    "sourceMap": true,
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "typeRoots": ["src/types"]
+  },
+  "include": ["src/**/*", "src/types"],
+  "exclude": ["node_modules", "dist", "tests"]
+}
