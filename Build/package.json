@@ -1,6 +1,6 @@
 {
   "name": "@nisoku/sakko",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Sakko, the modern DSL (Design Sub-Language)",
   "license": "Apache-2.0",
   "repository": {
@@ -24,7 +24,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "vite build",
