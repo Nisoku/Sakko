@@ -114,7 +114,7 @@ input(placeholder "Enter your name" type "email"): ""
 image(src "photo.jpg" alt "A photo"): ""
 ```
 
-The parser recognizes these keys as pairs: `cols`, `gap`, `radius`, `size`, `variant`, `layout`, `placeholder`, `type`, `src`, `alt`, `icon`, `label`, `value`, `center-point`.
+The parser recognizes these keys as pairs: `cols`, `gap`, `radius`, `size`, `variant`, `layout`, `placeholder`, `type`, `src`, `alt`, `icon`, `label`, `value`, `center-point`, `min`, `max`, `step`, `name`, `heading`, `slot`, `active`, `open`, `message`, `title`, `disabled`, `checked`, `selected`, `removable`, `indeterminate`, `single-open`, `duration`, `no-close`, `shape`, `variant`, `required`, `placeholder`, `multiple`, `for`, `cols`, `md:cols`, `lg:cols`, `direction`.
 
 ### Modifier Categories
 
