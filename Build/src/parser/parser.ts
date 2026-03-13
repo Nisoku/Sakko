@@ -49,6 +49,16 @@ const KNOWN_KEYS = new Set([
   "label",
   "value",
   "center-point",
+  "min",
+  "max",
+  "step",
+  "name",
+  "heading",
+  "slot",
+  "active",
+  "open",
+  "message",
+  "title",
 ]);
 
 export class Parser {

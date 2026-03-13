@@ -131,4 +131,55 @@ describe("Demo source snippets", () => {
       divider: ""
     }
   }>`);
+
+  parseSnippet("all new components", `<demo {
+    stack(gap large) {
+      heading: "All New Components"
+      text(bold): "Chips"
+      row(gap small center): [
+        chip: "Basic",
+        chip(selected): "Selected",
+        chip(accent): "Accent"
+      ]
+      text(bold): "Badges"
+      row(gap small center): [
+        badge: "New",
+        badge(accent): "Featured"
+      ]
+      text(bold): "Tags"
+      row(gap small center): [
+        tag: "Tag",
+        tag(primary): "Primary"
+      ]
+      text(bold): "Avatar"
+      row(gap medium center): [
+        avatar: "JD",
+        avatar(large): "CD"
+      ]
+      text(bold): "Spinner"
+      row(gap medium center): [
+        spinner: "",
+        spinner(large): ""
+      ]
+      text(bold): "Progress"
+      row(gap medium): [
+        progress(value 30 max 100): "",
+        progress(value 60 max 100 large): ""
+      ]
+      text(bold): "Slider"
+      slider(value 50 min 0 max 100 step 1): ""
+      text(bold): "Radio"
+      stack(gap small): [
+        radio(name "r1" value "a"): "Option A",
+        radio(name "r1" value "b" checked): "Option B"
+      ]
+      text(bold): "Switch"
+      row(gap small center): [
+        switch: "WiFi",
+        switch(checked): "Bluetooth"
+      ]
+      text(bold): "Input"
+      input(placeholder "Enter text..."): ""
+    }
+  }>`);
 });

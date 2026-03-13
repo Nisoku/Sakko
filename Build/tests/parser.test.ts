@@ -316,4 +316,74 @@ describe("Parser", () => {
     expect(card.children[1].name).toBe("divider");
     expect(card.children[1].value).toBe("");
   });
+
+  test("parses min/max/step modifiers for slider", () => {
+    const ast = parseSakko('<page { slider(value 50 min 0 max 100 step 1): "" }>');
+    const slider = ast.children[0] as any;
+    expect(slider.modifiers).toEqual([
+      { type: "pair", key: "value", value: "50" },
+      { type: "pair", key: "min", value: "0" },
+      { type: "pair", key: "max", value: "100" },
+      { type: "pair", key: "step", value: "1" },
+    ]);
+  });
+
+  test("parses name modifier for radio", () => {
+    const ast = parseSakko('<page { radio(name "r1" value "a"): "Option A" }>');
+    const radio = ast.children[0] as any;
+    expect(radio.modifiers).toEqual([
+      { type: "pair", key: "name", value: "r1" },
+      { type: "pair", key: "value", value: "a" },
+    ]);
+  });
+
+  test("parses heading modifier for accordion", () => {
+    const ast = parseSakko('<page { div(heading "Section 1"): "Content" }>');
+    const div = ast.children[0] as any;
+    expect(div.modifiers).toEqual([
+      { type: "pair", key: "heading", value: "Section 1" },
+    ]);
+  });
+
+  test("parses slot modifier", () => {
+    const ast = parseSakko('<page { div(slot "panel"): "Content" }>');
+    const div = ast.children[0] as any;
+    expect(div.modifiers).toEqual([
+      { type: "pair", key: "slot", value: "panel" },
+    ]);
+  });
+
+  test("parses active modifier for tabs", () => {
+    const ast = parseSakko('<page { tabs(active 0): "" }>');
+    const tabs = ast.children[0] as any;
+    expect(tabs.modifiers).toEqual([
+      { type: "pair", key: "active", value: "0" },
+    ]);
+  });
+
+  test("parses open modifier for accordion", () => {
+    const ast = parseSakko('<page { div(heading "Section" open): "Content" }>');
+    const div = ast.children[0] as any;
+    expect(div.modifiers).toEqual([
+      { type: "pair", key: "heading", value: "Section" },
+      { type: "flag", value: "open" },
+    ]);
+  });
+
+  test("parses message modifier for toast", () => {
+    const ast = parseSakko('<page { toast(message "Hello" variant "success"): "" }>');
+    const toast = ast.children[0] as any;
+    expect(toast.modifiers).toEqual([
+      { type: "pair", key: "message", value: "Hello" },
+      { type: "pair", key: "variant", value: "success" },
+    ]);
+  });
+
+  test("parses title modifier for modal", () => {
+    const ast = parseSakko('<page { modal(title "Hello"): "" }>');
+    const modal = ast.children[0] as any;
+    expect(modal.modifiers).toEqual([
+      { type: "pair", key: "title", value: "Hello" },
+    ]);
+  });
 });
