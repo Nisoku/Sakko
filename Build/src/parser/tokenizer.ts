@@ -48,12 +48,21 @@ export function tokenize(input: string): Token[] {
       continue;
     }
 
-    // Comments: skip to end of line
+    // Comments: skip to end of line (only if there's a newline or no < at all)
     if (ch === "/" && i + 1 < input.length && input[i + 1] === "/") {
-      while (i < input.length && input[i] !== "\n" && input[i] !== "\r") {
-        i++;
+      // Check if there's a newline in this comment (before any <)
+      const commentContent = input.slice(i + 2);
+      const nextNewline = commentContent.indexOf("\n");
+      const nextLT = commentContent.indexOf("<");
+      // Strip if: newline exists before <, or there's no < at all in the comment
+      const hasNewlineBeforeLT = nextNewline !== -1 && (nextLT === -1 || nextNewline < nextLT);
+      if (hasNewlineBeforeLT || nextLT === -1) {
+        while (i < input.length && input[i] !== "\n" && input[i] !== "\r") {
+          i++;
+        }
+        continue;
       }
-      continue;
+      // < comes before newline, don't skip comment
     }
 
     const SYMBOLS: Record<string, TokenType> = {

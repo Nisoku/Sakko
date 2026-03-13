@@ -263,6 +263,41 @@ export class Parser {
   }
 }
 
+function stripComments(input: string): string {
+  let result = "";
+  let i = 0;
+  while (i < input.length) {
+    if (input[i] === "/" && input[i + 1] === "/") {
+      // Only strip if there's a newline after (real comment)
+      const hasNewline = input.indexOf("\n", i + 2) !== -1 || input.indexOf("\r", i + 2) !== -1;
+      if (!hasNewline) {
+        // Not a real comment (might be in a string like URL) - keep it
+        result += input[i];
+        i++;
+        continue;
+      }
+      // Skip to newline
+      while (i < input.length && input[i] !== "\n" && input[i] !== "\r") {
+        i++;
+      }
+      // Keep the newline
+      if (i < input.length) {
+        result += input[i];
+        i++;
+        // Handle CRLF
+        if (i < input.length && input[i - 1] === "\r" && input[i] === "\n") {
+          result += input[i];
+          i++;
+        }
+      }
+      continue;
+    }
+    result += input[i];
+    i++;
+  }
+  return result;
+}
+
 export function parseSakko(input: string): RootNode {
   const tokens = tokenize(input);
   if (tokens.length === 0) {
