@@ -1,4 +1,5 @@
 import { tokenize, type Token } from "./tokenizer";
+import { parserError } from "../errors";
 
 export type Modifier =
   | { type: "flag"; value: string }
@@ -73,6 +74,11 @@ export class Parser {
   }
 
   private errorAt(msg: string, token?: Token): Error {
+    parserError(msg, { 
+      line: token?.line, 
+      column: token?.col,
+      suggestion: this._getSuggestion(msg)
+    });
     if (!token || !this.source) return new Error(msg);
     const lines = this.source.split("\n");
     const lineText = lines[token.line - 1] || "";
@@ -80,6 +86,13 @@ export class Parser {
     return new Error(
       `${msg} at line ${token.line}, col ${token.col}\n  ${lineText}\n  ${pointer}`,
     );
+  }
+
+  private _getSuggestion(msg: string): string | undefined {
+    if (msg.includes("Unexpected end of input")) return "Check for missing closing brackets";
+    if (msg.includes("Expected")) return "Add the expected token";
+    if (msg.includes("Unexpected token")) return "Remove or replace this token";
+    return undefined;
   }
 
   peek(): Token | undefined {
@@ -279,7 +292,8 @@ function stripComments(input: string): string {
   while (i < input.length) {
     if (input[i] === "/" && input[i + 1] === "/") {
       // Only strip if there's a newline after (real comment)
-      const hasNewline = input.indexOf("\n", i + 2) !== -1 || input.indexOf("\r", i + 2) !== -1;
+      const hasNewline =
+        input.indexOf("\n", i + 2) !== -1 || input.indexOf("\r", i + 2) !== -1;
       if (!hasNewline) {
         // Not a real comment (might be in a string like URL) - keep it
         result += input[i];
@@ -311,6 +325,7 @@ function stripComments(input: string): string {
 export function parseSakko(input: string): RootNode {
   const tokens = tokenize(input);
   if (tokens.length === 0) {
+    parserError("Empty input", { suggestion: "Add some content to parse" });
     throw new Error("Empty input");
   }
   const parser = new Parser(tokens, input);

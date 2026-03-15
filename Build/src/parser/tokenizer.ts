@@ -1,3 +1,5 @@
+import { tokenizerError } from "../errors";
+
 export type TokenType =
   | "LT"
   | "GT"
@@ -55,7 +57,8 @@ export function tokenize(input: string): Token[] {
       const nextNewline = commentContent.indexOf("\n");
       const nextLT = commentContent.indexOf("<");
       // Strip if: newline exists before <, or there's no < at all in the comment
-      const hasNewlineBeforeLT = nextNewline !== -1 && (nextLT === -1 || nextNewline < nextLT);
+      const hasNewlineBeforeLT =
+        nextNewline !== -1 && (nextLT === -1 || nextNewline < nextLT);
       if (hasNewlineBeforeLT || nextLT === -1) {
         while (i < input.length && input[i] !== "\n" && input[i] !== "\r") {
           i++;
@@ -102,6 +105,12 @@ export function tokenize(input: string): Token[] {
         i++;
       }
       if (i >= input.length) {
+        tokenizerError("Unterminated string", {
+          position: i,
+          line,
+          column: startCol,
+          suggestion: 'Add a closing quote "',
+        });
         throw new Error(`Unterminated string at line ${line}, col ${startCol}`);
       }
       i++;
@@ -122,6 +131,12 @@ export function tokenize(input: string): Token[] {
       continue;
     }
 
+    tokenizerError(`Unexpected character: ${ch}`, {
+      position: i,
+      line,
+      column: col,
+      suggestion: `Remove or escape this character`,
+    });
     throw new Error(`Unexpected character: ${ch} at line ${line}, col ${col}`);
   }
 
