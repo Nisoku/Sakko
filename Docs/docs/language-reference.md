@@ -198,6 +198,101 @@ Single-line comments start with `//`:
 
 ---
 
+## Reactivity
+
+Sakko supports inline reactivity through atcodes. These compile to Sairin signals for reactive UI.
+
+### State
+
+Declare reactive state with `@state`:
+
+```sako
+<counter {
+  @state {
+    count = 0
+    step = 1
+  }
+  
+  text: "Count: {count}"
+}>
+```
+
+The `@state` block declares variables that can be read and written. Values are initialized with JavaScript expressions.
+
+### Derived State
+
+Compute derived values with `@derived`:
+
+```sako
+<app {
+  @state { items = [] }
+  @derived {
+    count = items.length
+    isEmpty = items.length === 0
+  }
+  text: "{count} items"
+}>
+```
+
+Derived values automatically update when their dependencies change.
+
+### Effects
+
+Run side effects with `@effect`:
+
+```sako
+<app {
+  @state { count = 0 }
+  
+  @effect {
+    console.log("Count changed:", count)
+    document.title = `Count: ${count}`
+  }
+  
+  button @on:click { count++ }: "Increment"
+}>
+```
+
+Effects run when any referenced state changes.
+
+### Event Handlers
+
+Handle DOM events with `@on:event`:
+
+```sako
+button @on:click { count++ }: "Click"
+input @on:input { value = e.target.value }: ""
+div @on:mouseenter { isHovered = true }: "Hover"
+```
+
+The handler body is JavaScript. Reference state directly and use `.set()` to update.
+
+### Two-way Binding
+
+Bind input elements with `@bind`:
+
+```sako
+<input @bind="username": "">
+<checkbox @bind="checked": "">
+<select @bind="value": "">
+```
+
+The bound signal syncs automatically with the input value.
+
+### Interpolation
+
+Use `{expression}` in text values:
+
+```sako
+text: "Hello, {name}!"
+text: "{a} + {b} = {a + b}"
+text: "Items: {items.length}"
+```
+
+Interpolation compiles to effects that update the text when dependencies change.
+
+---
+
 ## Complete Example
 
 ```sako
