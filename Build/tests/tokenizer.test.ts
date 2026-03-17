@@ -76,8 +76,10 @@ describe("Tokenizer", () => {
     expect(() => tokenize('text: "unclosed string')).toThrow("Unterminated string");
   });
 
-  test("should throw error on unexpected character", () => {
-    expect(() => tokenize("text: @invalid")).toThrow("Unexpected character: @");
+  test("should handle @ token", () => {
+    const tokens = tokenize("@state");
+    expect(tokens[0].type).toBe("AT");
+    expect(tokens[1].type).toBe("IDENT");
   });
 
   test("should preserve URLs inside strings", () => {

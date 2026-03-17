@@ -3,12 +3,44 @@ import { parserError } from "../errors";
 
 export type Modifier =
   | { type: "flag"; value: string }
-  | { type: "pair"; key: string; value: string };
+  | { type: "pair"; key: string; value: string }
+  | { type: "atcode"; name: string; body: string }
+  | { type: "event"; event: string; handler: string };
+
+export type InterpolatedTextPart = 
+  | { type: "text"; value: string }
+  | { type: "expr"; value: string };
+
+export type InterpolatedText = {
+  type: "interpolated";
+  parts: InterpolatedTextPart[];
+};
+
+export type AtcodeDeclaration =
+  | { 
+      type: "state"; 
+      declarations: Array<{ name: string; value: string }>; 
+      line: number; 
+      col: number;
+    }
+  | { 
+      type: "effect"; 
+      body: string;
+      line: number; 
+      col: number;
+    }
+  | { 
+      type: "derived"; 
+      declarations: Array<{ name: string; expr: string }>; 
+      line: number; 
+      col: number;
+    };
 
 export type RootNode = {
   type: "root";
   name: string;
   modifiers: Modifier[];
+  declarations: AtcodeDeclaration[];
   children: ASTNode[];
 };
 
@@ -23,7 +55,7 @@ export type InlineNode = {
   type: "inline";
   name: string;
   modifiers: Modifier[];
-  value: string;
+  value: string | InterpolatedText;
 };
 
 export type ListNode = {
@@ -99,6 +131,14 @@ export class Parser {
     return this.tokens[this.position];
   }
 
+  peekAhead(offset: number): Token | undefined {
+    return this.tokens[this.position + offset];
+  }
+
+  peekAheadIs(type: string): boolean {
+    return this.peekAhead(1)?.type === type;
+  }
+
   consume(): Token {
     const token = this.tokens[this.position];
     if (!token) {
@@ -132,12 +172,13 @@ export class Parser {
     }
     const name = this.consume().value;
 
-    // Root element can have modifiers: <stack(gap medium) { ... }>
     const modifiers = this.check("LPAREN") ? this.parseModifiers() : [];
 
     this.expect("LBRACE", "Expected '{'");
 
+    const declarations: AtcodeDeclaration[] = [];
     const children: ASTNode[] = [];
+
     while (!this.check("RBRACE")) {
       if (!this.peek()) {
         throw this.errorAt(
@@ -145,7 +186,26 @@ export class Parser {
           this.tokens[this.tokens.length - 1],
         );
       }
-      children.push(this.parseNode());
+
+      if (this.check("AT")) {
+        const atPosition = this.position;
+        this.consume();
+        const nextToken = this.peek();
+        
+        if (nextToken?.type === "IDENT" && 
+            (nextToken.value === "state" || 
+             nextToken.value === "effect" || 
+             nextToken.value === "derived")) {
+          this.position = atPosition;
+          declarations.push(this.parseAtcodeDeclaration());
+        } else {
+          this.position = atPosition;
+          const node = this.parseNode();
+          children.push(node);
+        }
+      } else {
+        children.push(this.parseNode());
+      }
       if (this.check("SEMI")) this.consume();
       if (this.check("COMMA")) this.consume();
     }
@@ -153,7 +213,155 @@ export class Parser {
     this.expect("RBRACE", "Expected '}'");
     this.expect("GT", "Expected '>'");
 
-    return { type: "root", name, modifiers, children };
+    return { type: "root", name, modifiers, declarations, children };
+  }
+
+  parseAtcodeDeclaration(): AtcodeDeclaration {
+    const atToken = this.consume();
+    const nameToken = this.expect("IDENT");
+    const name = nameToken.value;
+
+    if (name === "state") {
+      this.expect("LBRACE");
+      
+      const declarations: Array<{ name: string; value: string }> = [];
+      
+      while (!this.check("RBRACE")) {
+        const varToken = this.expect("IDENT");
+        const varName = varToken.value;
+        this.expect("EQUALS");
+        
+        const valueExpr = this.parseExpression();
+        
+        declarations.push({ name: varName, value: valueExpr });
+        
+        if (this.check("SEMI") || this.check("COMMA")) {
+          this.consume();
+        } else if (this.check("IDENT") && this.peekAheadIs("EQUALS")) {
+          // New declaration starting without semicolon, this is valid in vertical style
+        } else if (this.check("RBRACE")) {
+          // End of block
+          break;
+        }
+      }
+      
+      this.expect("RBRACE");
+
+      return {
+        type: "state",
+        declarations,
+        line: atToken.line,
+        col: atToken.col,
+      };
+    }
+
+    if (name === "effect") {
+      this.expect("LBRACE");
+      
+      const body = this.parseBlockBody();
+      
+      this.expect("RBRACE");
+
+      return {
+        type: "effect",
+        body,
+        line: atToken.line,
+        col: atToken.col,
+      };
+    }
+
+    if (name === "derived") {
+      this.expect("LBRACE");
+      
+      const declarations: Array<{ name: string; expr: string }> = [];
+      
+      while (!this.check("RBRACE")) {
+        const varToken = this.expect("IDENT");
+        const varName = varToken.value;
+        this.expect("EQUALS");
+        const expr = this.parseExpression();
+
+        declarations.push({ name: varName, expr });
+        
+        if (this.check("SEMI") || this.check("COMMA")) {
+          this.consume();
+        } else if (this.check("IDENT") && this.peekAheadIs("EQUALS")) {
+          // New declaration starting without semicolon, this is valid in vertical style
+        } else if (this.check("RBRACE")) {
+          break;
+        }
+      }
+      
+      this.expect("RBRACE");
+
+      return {
+        type: "derived",
+        declarations,
+        line: atToken.line,
+        col: atToken.col,
+      };
+    }
+
+    throw this.errorAt(`Unknown atcode: @${name}`, nameToken);
+  }
+
+  parseBlockBody(): string {
+    let body = "";
+    let braceDepth = 0;
+
+    while (this.peek() && (braceDepth > 0 || !this.check("RBRACE"))) {
+      const token = this.peek();
+      
+      if (token?.type === "LBRACE") braceDepth++;
+      if (token?.type === "RBRACE" && braceDepth > 0) braceDepth--;
+      
+      if (braceDepth === 0 && token?.type === "RBRACE") break;
+      
+      if (token) {
+        if (token.type === "STRING") {
+          body += `"${token.value}"`;
+        } else {
+          body += token.value;
+        }
+        this.consume();
+      }
+    }
+
+    return body.trim();
+  }
+
+  parseExpression(): string {
+    let expr = "";
+    let parenDepth = 0;
+    let braceDepth = 0;
+    let bracketDepth = 0;
+
+    while (this.peek()) {
+      const token = this.peek();
+
+      if (parenDepth === 0 && braceDepth === 0 && bracketDepth === 0) {
+        if (token?.type === "SEMI" || token?.type === "RBRACE" || token?.type === "COMMA") {
+          break;
+        }
+        if (token?.type === "IDENT" && this.peekAheadIs("EQUALS")) {
+          break;
+        }
+      }
+
+      if (token?.type === "LPAREN") parenDepth++;
+      if (token?.type === "RPAREN") parenDepth--;
+      if (token?.type === "LBRACE") braceDepth++;
+      if (token?.type === "RBRACE") braceDepth--;
+      if (token?.type === "LBRACKET") bracketDepth++;
+      if (token?.type === "RBRACKET") bracketDepth--;
+
+      if (token) {
+        expr += token.value;
+        this.consume();
+      }
+    }
+
+    return expr.trim();
   }
 
   parseNode(): ASTNode {
@@ -166,7 +374,17 @@ export class Parser {
     }
     const name = this.consume().value;
 
-    const modifiers = this.check("LPAREN") ? this.parseModifiers() : [];
+    const modifiers: Modifier[] = [];
+
+    while (this.check("LPAREN") || this.check("AT")) {
+      if (this.check("LPAREN")) {
+        modifiers.push(...this.parseModifiers());
+      }
+      
+      if (this.check("AT")) {
+        modifiers.push(this.parseInlineModifier());
+      }
+    }
 
     if (this.check("COLON")) {
       this.consume();
@@ -177,17 +395,27 @@ export class Parser {
       }
 
       const valToken = this.peek();
-      if (
-        !valToken ||
-        (valToken.type !== "IDENT" && valToken.type !== "STRING")
-      ) {
+      if (!valToken) {
         throw this.errorAt(
-          `Expected value after ':' but got ${valToken?.type || "end of input"}`,
-          valToken,
+          `Expected value after ':' but got end of input`,
+          this.tokens[this.tokens.length - 1],
         );
       }
-      const value = this.consume().value;
-      return { type: "inline", name, modifiers, value };
+
+      if (valToken.type === "STRING" || valToken.type === "INTERP_START") {
+        const value = this.parseInterpolatedValue();
+        return { type: "inline", name, modifiers, value };
+      }
+
+      if (valToken.type === "IDENT") {
+        const value = this.consume().value;
+        return { type: "inline", name, modifiers, value };
+      }
+
+      throw this.errorAt(
+        `Expected value after ':' but got ${valToken.type || "end of input"}`,
+        valToken,
+      );
     }
 
     if (this.check("LBRACKET")) {
@@ -229,6 +457,56 @@ export class Parser {
         throw this.errorAt(
           "Unexpected end of input, expected ')'",
           this.tokens[this.tokens.length - 1],
+        );
+      }
+
+      if (this.check("AT")) {
+        const atToken = this.consume();
+        const nameToken = this.expect("IDENT");
+        
+        if (nameToken.value === "on") {
+          this.expect("COLON");
+          const eventToken = this.expect("IDENT");
+          const event = eventToken.value;
+          
+          let handler: string;
+          
+          if (this.check("LBRACE")) {
+            this.consume();
+            handler = this.parseBlockBody();
+            this.expect("RBRACE");
+          } else {
+            throw this.errorAt(
+              "Event handlers must use block syntax: @on:click { ... }",
+              this.peek()
+            );
+          }
+
+          modifiers.push({
+            type: "event",
+            event,
+            handler,
+          });
+          continue;
+        }
+
+        if (nameToken.value === "bind") {
+          this.expect("EQUALS");
+          const signal = this.check("STRING") 
+            ? this.consume().value 
+            : this.expect("IDENT").value;
+
+          modifiers.push({
+            type: "atcode",
+            name: "bind",
+            body: signal,
+          });
+          continue;
+        }
+
+        throw this.errorAt(
+          `Atcode @${nameToken.value} not yet supported in modifiers`,
+          nameToken
         );
       }
 
@@ -284,6 +562,84 @@ export class Parser {
     this.consume();
     return { type: "list", items };
   }
+
+  parseInterpolatedValue(): string | InterpolatedText {
+    const parts: InterpolatedTextPart[] = [];
+    
+    while (this.check("STRING") || this.check("INTERP_START")) {
+      if (this.check("STRING")) {
+        const text = this.consume().value;
+        if (text) {
+          parts.push({ type: "text", value: text });
+        }
+      }
+      
+      if (this.check("INTERP_START")) {
+        this.consume();
+        const expr = this.expect("EXPR").value;
+        parts.push({ type: "expr", value: expr });
+        this.expect("INTERP_END");
+      }
+    }
+
+    if (parts.length === 0) {
+      return "";
+    }
+
+    if (parts.length === 1 && parts[0].type === "text") {
+      return parts[0].value;
+    }
+
+    return { type: "interpolated", parts };
+  }
+
+  parseInlineModifier(): Modifier {
+    const atToken = this.consume();
+    const nameToken = this.expect("IDENT");
+    
+    if (nameToken.value === "on") {
+      this.expect("COLON");
+      const eventToken = this.expect("IDENT");
+      const event = eventToken.value;
+      
+      let handler: string;
+      
+      if (this.check("LBRACE")) {
+        this.consume();
+        handler = this.parseBlockBody();
+        this.expect("RBRACE");
+      } else {
+        throw this.errorAt(
+          "Event handlers must use block syntax: @on:click { ... }",
+          this.peek()
+        );
+      }
+
+      return {
+        type: "event",
+        event,
+        handler,
+      };
+    }
+
+    if (nameToken.value === "bind") {
+      this.expect("EQUALS");
+      const signal = this.check("STRING") 
+        ? this.consume().value 
+        : this.expect("IDENT").value;
+
+      return {
+        type: "atcode",
+        name: "bind",
+        body: signal,
+      };
+    }
+
+    throw this.errorAt(
+      `Unknown modifier: @${nameToken.value}`,
+      nameToken
+    );
+  }
 }
 
 function stripComments(input: string): string {
@@ -295,7 +651,7 @@ function stripComments(input: string): string {
       const hasNewline =
         input.indexOf("\n", i + 2) !== -1 || input.indexOf("\r", i + 2) !== -1;
       if (!hasNewline) {
-        // Not a real comment (might be in a string like URL) - keep it
+        // Not a real comment (might be in a string like URL), keep it
         result += input[i];
         i++;
         continue;

@@ -13,7 +13,15 @@ export type TokenType =
   | "SEMI"
   | "COMMA"
   | "IDENT"
-  | "STRING";
+  | "STRING"
+  | "AT"
+  | "EQUALS"
+  | "INTERP_START"
+  | "INTERP_END"
+  | "EXPR"
+  | "DOT"
+  | "PLUS"
+  | "MINUS";
 
 export type Token = {
   type: TokenType;
@@ -80,6 +88,11 @@ export function tokenize(input: string): Token[] {
       ":": "COLON",
       ";": "SEMI",
       ",": "COMMA",
+      "@": "AT",
+      "=": "EQUALS",
+      ".": "DOT",
+      "+": "PLUS",
+      "-": "MINUS",
     };
 
     if (SYMBOLS[ch]) {
@@ -93,6 +106,19 @@ export function tokenize(input: string): Token[] {
       const startCol = col;
       i++;
       col++;
+      
+      const remaining = input.slice(i);
+      const hasInterpolation = /\{[a-zA-Z_$]/.test(remaining);
+      
+      if (hasInterpolation) {
+        const result = tokenizeStringWithInterpolation(input, i, line, col, startCol);
+        tokens.push(...result.tokens);
+        i = result.endIndex + 1;
+        line = result.endLine;
+        col = result.endCol + 1;
+        continue;
+      }
+      
       let str = "";
       while (i < input.length && input[i] !== '"') {
         if (input[i] === "\n") {
@@ -141,4 +167,89 @@ export function tokenize(input: string): Token[] {
   }
 
   return tokens;
+}
+
+function tokenizeStringWithInterpolation(
+  input: string,
+  startIndex: number,
+  line: number,
+  col: number,
+  originalStartCol: number,
+): { tokens: Token[]; endIndex: number; endLine: number; endCol: number } {
+  const tokens: Token[] = [];
+  let i = startIndex;
+  let currentLine = line;
+  let currentCol = col;
+  let textBuffer = "";
+  let textStartCol = currentCol;
+
+  while (i < input.length && input[i] !== '"') {
+    if (input[i] === '{') {
+      if (textBuffer) {
+        tokens.push({
+          type: "STRING",
+          value: textBuffer,
+          line: currentLine,
+          col: textStartCol,
+        });
+        textBuffer = "";
+      }
+
+      tokens.push({ type: "INTERP_START", value: '{', line: currentLine, col: currentCol });
+      i++;
+      currentCol++;
+
+      let expr = "";
+      let braceDepth = 1;
+      const exprStartCol = currentCol;
+
+      while (i < input.length && braceDepth > 0) {
+        if (input[i] === '{') braceDepth++;
+        if (input[i] === '}') braceDepth--;
+
+        if (braceDepth > 0) {
+          expr += input[i];
+        }
+
+        if (input[i] === '\n') {
+          currentLine++;
+          currentCol = 1;
+        } else {
+          currentCol++;
+        }
+        i++;
+      }
+
+      tokens.push({ type: "EXPR", value: expr.trim(), line: currentLine, col: exprStartCol });
+      tokens.push({ type: "INTERP_END", value: '}', line: currentLine, col: currentCol - 1 });
+
+      textStartCol = currentCol;
+      continue;
+    }
+
+    textBuffer += input[i];
+    if (input[i] === '\n') {
+      currentLine++;
+      currentCol = 1;
+    } else {
+      currentCol++;
+    }
+    i++;
+  }
+
+  if (textBuffer) {
+    tokens.push({
+      type: "STRING",
+      value: textBuffer,
+      line: currentLine,
+      col: textStartCol,
+    });
+  }
+
+  return {
+    tokens,
+    endIndex: i,
+    endLine: currentLine,
+    endCol: currentCol,
+  };
 }

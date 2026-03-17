@@ -14,10 +14,6 @@ describe('Tokenizer - Error handling', () => {
     expect(() => tokenize('"hello world')).toThrow('Unterminated string');
   });
 
-  test('should throw on unexpected character @', () => {
-    expect(() => tokenize('text@ value')).toThrow('Unexpected character: @');
-  });
-
   test('should throw on unexpected character #', () => {
     expect(() => tokenize('#heading')).toThrow('Unexpected character: #');
   });
