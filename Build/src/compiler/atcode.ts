@@ -69,8 +69,9 @@ function addGetCallsToStateVars(code: string, ctx: ComponentContext): string {
   let result = code;
 
   for (const varName of [...ctx.stateVars, ...ctx.derivedVars]) {
+    const escapedVarName = escapeRegExp(varName);
     const regex = new RegExp(
-      `\\b${varName}\\b(?!\\.get|\\.set|\\s*=|\\[)`,
+      `\\b${escapedVarName}\\b(?!\\.get|\\.set|\\s*=|\\[)`,
       "g",
     );
     result = result.replace(regex, `${varName}.get()`);
@@ -97,18 +98,20 @@ function compileHandlerBody(code: string, ctx: ComponentContext): string {
   let result = code;
 
   for (const varName of ctx.stateVars) {
+    const escapedVarName = escapeRegExp(varName);
+
     result = result.replace(
-      new RegExp(`${varName}\\s*\\+\\+`, "g"),
+      new RegExp(`${escapedVarName}\\+\\+`, "g"),
       `${varName}.set(${varName}.get() + 1)`,
     );
 
     result = result.replace(
-      new RegExp(`${varName}\\s*--`, "g"),
+      new RegExp(`${escapedVarName}--`, "g"),
       `${varName}.set(${varName}.get() - 1)`,
     );
 
     result = result.replace(
-      new RegExp(`${varName}\\s*\\+\\s*=\\s*([^;]+)`, "g"),
+      new RegExp(`${escapedVarName}\\+=\\s*([^;]+)`, "g"),
       (match, expr) => {
         const cleanExpr = expr.trim();
         const exprWithGet = addGetCallsToStateVars(cleanExpr, ctx);
@@ -117,7 +120,7 @@ function compileHandlerBody(code: string, ctx: ComponentContext): string {
     );
 
     result = result.replace(
-      new RegExp(`${varName}\\s*-\\s*=\\s*([^;]+)`, "g"),
+      new RegExp(`${escapedVarName}-=\\s*([^;]+)`, "g"),
       (match, expr) => {
         const cleanExpr = expr.trim();
         const exprWithGet = addGetCallsToStateVars(cleanExpr, ctx);
@@ -126,7 +129,7 @@ function compileHandlerBody(code: string, ctx: ComponentContext): string {
     );
 
     result = result.replace(
-      new RegExp(`${varName}\\s*=\\s*([^;]+)`, "g"),
+      new RegExp(`${escapedVarName}=\\s*([^;]+)`, "g"),
       (match, expr) => {
         const cleanExpr = expr.trim();
         const exprWithGet = addGetCallsToStateVars(cleanExpr, ctx);
@@ -183,16 +186,23 @@ export function compileBindModifier(
   };
 }
 
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export function compileInterpolation(
   parts: InterpolatedTextPart[],
   ctx: ComponentContext,
+  elementVar: string,
 ): { static: boolean; code: string } {
+  const reactiveVars = [...ctx.stateVars, ...ctx.derivedVars];
   const hasReactiveExpr = parts.some(
     (part) =>
       part.type === "expr" &&
-      [...ctx.stateVars, ...ctx.derivedVars].some((v) =>
-        part.value.includes(v),
-      ),
+      reactiveVars.some((v) => {
+        const regex = new RegExp(`\\b${escapeRegExp(v)}\\b`);
+        return regex.test(part.value);
+      }),
   );
 
   if (!hasReactiveExpr) {
@@ -220,7 +230,7 @@ export function compileInterpolation(
   return {
     static: false,
     code: `effect(() => {
-    element.textContent = \`${templateParts}\`;
+    ${elementVar}.textContent = \`${templateParts}\`;
   });`,
   };
 }

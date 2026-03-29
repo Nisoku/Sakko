@@ -1,3 +1,6 @@
+import { compileComponent } from "./compiler/component";
+import { parseSakko } from "./parser/parser";
+
 export { tokenize } from "./parser/tokenizer";
 export { parseSakko, Parser } from "./parser/parser";
 export type {
@@ -29,9 +32,6 @@ export {
 } from "./runtime/register";
 
 export function compile(code: string): { code: string; ast?: any } {
-  const { parseSakko } = require("./parser/parser");
-  const { compileComponent } = require("./compiler/component");
-
   try {
     const ast = parseSakko(code);
     const compiled = compileComponent(ast);

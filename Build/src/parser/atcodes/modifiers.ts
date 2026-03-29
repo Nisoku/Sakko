@@ -48,10 +48,11 @@ export function parseInlineModifier(parser: ParserState): Modifier {
       parser.consume();
       handler = parser.parseBlockBody();
       parser.expect("RBRACE");
-    } else if (parser.check("IDENT")) {
-      handler = parser.consume().value;
     } else {
-      handler = "() => {}";
+      throw parser.errorAt(
+        "Event handlers must use block syntax: @on:click { ... }",
+        eventToken,
+      );
     }
 
     return {

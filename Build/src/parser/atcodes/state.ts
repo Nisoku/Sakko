@@ -31,10 +31,20 @@ export function parseStateDeclaration(
 
     if (parser.check("IDENT") && parser.peek()?.value === "const") {
       parser.consume();
+      const nextToken = parser.peek();
+      if (!nextToken || nextToken.type !== "IDENT") {
+        throw parser.errorAt("Expected identifier after 'const'", nextToken);
+      }
     }
 
     const varToken = parser.peek();
     if (!varToken || varToken.type !== "IDENT") {
+      if (declarations.length === 0) {
+        throw parser.errorAt(
+          "Expected variable declaration",
+          varToken,
+        );
+      }
       break;
     }
 

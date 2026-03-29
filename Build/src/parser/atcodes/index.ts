@@ -26,11 +26,8 @@ export function parseAtcodeDeclaration(
     return parseDerivedDeclaration(parser, atToken);
   }
 
-  // Unknown atcode, try to parse generically
-  return {
-    type: "effect",
-    body: name,
-    line: atToken.line,
-    col: atToken.col,
-  };
+  // Unknown atcode - throw error with position info
+  throw new Error(
+    `Unknown atcode '@${name}' at line ${atToken.line}, col ${atToken.col}`,
+  );
 }

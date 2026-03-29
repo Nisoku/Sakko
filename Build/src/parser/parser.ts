@@ -66,7 +66,7 @@ export class Parser {
     this.source = source || "";
   }
 
-  private errorAt(msg: string, token?: Token): Error {
+  errorAt(msg: string, token?: Token): Error {
     parserError(msg, {
       line: token?.line,
       column: token?.col,
@@ -161,7 +161,8 @@ export class Parser {
             nextToken.value === "derived")
         ) {
           this.position = atPosition;
-          declarations.push(this.parseAtcodeDeclaration());
+          const atToken = this.consume();
+          declarations.push(parseAtcodeDeclaration(this, atToken));
         } else {
           this.position = atPosition;
           const node = this.parseNode();
@@ -178,146 +179,6 @@ export class Parser {
     this.expect("GT", "Expected '>'");
 
     return { type: "root", name, modifiers, declarations, children };
-  }
-
-  parseAtcodeDeclaration(): AtcodeDeclaration {
-    const atToken = this.consume();
-    const nameToken = this.expect("IDENT");
-    const name = nameToken.value;
-
-    if (name === "state") {
-      // Support both @state { ... } and @state (no braces)
-      const hasBraces = this.check("LBRACE");
-      if (hasBraces) this.consume();
-
-      const declarations: Array<{ name: string; value: string }> = [];
-
-      // Parse declarations until we hit RBRACE (if braces) or EOF
-      while (true) {
-        if (!this.peek()) break;
-
-        // Check for closing brace (if using braces)
-        if (hasBraces && this.check("RBRACE")) {
-          this.consume();
-          break;
-        }
-
-        // Skip optional 'const' keyword
-        if (this.check("IDENT") && this.peek()?.value === "const") {
-          this.consume();
-        }
-
-        const varToken = this.peek();
-        if (!varToken || varToken.type !== "IDENT") {
-          break;
-        }
-
-        this.consume();
-        const varName = varToken.value;
-
-        // Check for = after the identifier
-        if (this.check("EQUALS")) {
-          this.consume();
-          const valueExpr = this.parseExpression();
-          declarations.push({ name: varName, value: valueExpr });
-
-          if (this.check("SEMI") || this.check("COMMA")) {
-            this.consume();
-          }
-        } else {
-          this.position--;
-          break;
-        }
-      }
-
-      return {
-        type: "state",
-        declarations,
-        line: atToken.line,
-        col: atToken.col,
-      };
-    }
-
-    if (name === "effect") {
-      // Support both @effect { ... } and @effect (no braces)
-      const hasBraces = this.check("LBRACE");
-      if (hasBraces) this.consume();
-
-      let body = "";
-      if (hasBraces) {
-        body = this.parseBlockBody();
-        this.expect("RBRACE");
-      } else {
-        // Parse until we hit a new statement
-        body = this.parseExpression();
-      }
-
-      return {
-        type: "effect",
-        body,
-        line: atToken.line,
-        col: atToken.col,
-      };
-    }
-
-    if (name === "derived") {
-      // Support both @derived { ... } and @derived (no braces)
-      const hasBraces = this.check("LBRACE");
-      if (hasBraces) this.consume();
-
-      const declarations: Array<{ name: string; expr: string }> = [];
-
-      while (true) {
-        if (!this.peek()) break;
-
-        // Check for closing brace (if using braces)
-        if (hasBraces && this.check("RBRACE")) {
-          this.consume();
-          break;
-        }
-
-        // Skip optional 'const' keyword
-        if (this.check("IDENT") && this.peek()?.value === "const") {
-          this.consume();
-        }
-
-        const varToken = this.peek();
-        if (!varToken || varToken.type !== "IDENT") {
-          break;
-        }
-
-        this.consume();
-        const varName = varToken.value;
-
-        if (this.check("EQUALS")) {
-          this.consume();
-          const expr = this.parseExpression();
-          declarations.push({ name: varName, expr });
-
-          if (this.check("SEMI") || this.check("COMMA")) {
-            this.consume();
-          }
-        } else {
-          this.position--;
-          break;
-        }
-      }
-
-      return {
-        type: "derived",
-        declarations,
-        line: atToken.line,
-        col: atToken.col,
-      };
-    }
-
-    // Unknown atcode - try to parse generically
-    return {
-      type: "effect",
-      body: name,
-      line: atToken.line,
-      col: atToken.col,
-    };
   }
 
   parseBlockBody(): string {
@@ -375,6 +236,9 @@ export class Parser {
       if (token?.type === "RBRACKET") bracketDepth--;
 
       if (token) {
+        if (expr && !expr.endsWith(" ") && !token.value.startsWith(" ")) {
+          expr += " ";
+        }
         expr += token.value;
         this.consume();
       }
@@ -401,7 +265,8 @@ export class Parser {
       }
 
       if (this.check("AT")) {
-        modifiers.push(this.parseInlineModifier());
+        this.consume(); // consume @
+        modifiers.push(parseInlineModifier(this));
       }
     }
 
@@ -610,89 +475,6 @@ export class Parser {
     }
 
     return { type: "interpolated", parts };
-  }
-
-  parseInlineModifier(): Modifier {
-    const atToken = this.consume();
-    const nameToken = this.expect("IDENT");
-
-    if (nameToken.value === "on") {
-      this.expect("COLON");
-      const eventToken = this.expect("IDENT");
-      const event = eventToken.value;
-
-      let handler: string;
-
-      if (this.check("LBRACE")) {
-        this.consume();
-        handler = this.parseBlockBody();
-        this.expect("RBRACE");
-      } else {
-        throw this.errorAt(
-          "Event handlers must use block syntax: @on:click { ... }",
-          this.peek(),
-        );
-      }
-
-      return {
-        type: "event",
-        event,
-        handler,
-      };
-    }
-
-    // Support @on:eventName handler (e.g., @on:click { count++ })
-    if (nameToken.value === "on") {
-      this.expect("COLON");
-      const eventToken = this.expect("IDENT");
-      const event = eventToken.value;
-
-      let handler = "";
-
-      if (this.check("LBRACE")) {
-        this.consume();
-        handler = this.parseBlockBody();
-        this.expect("RBRACE");
-      } else if (this.check("IDENT")) {
-        handler = this.consume().value;
-      } else {
-        handler = "() => {}";
-      }
-
-      return {
-        type: "event",
-        event,
-        handler,
-      };
-    }
-
-    // Support @class:classname (e.g., @class:active)
-    if (nameToken.value === "class") {
-      this.expect("COLON");
-      const classToken = this.expect("IDENT");
-      const className = classToken.value;
-
-      return {
-        type: "atcode",
-        name: "class",
-        body: className,
-      };
-    }
-
-    if (nameToken.value === "bind") {
-      this.expect("EQUALS");
-      const signal = this.check("STRING")
-        ? this.consume().value
-        : this.expect("IDENT").value;
-
-      return {
-        type: "atcode",
-        name: "bind",
-        body: signal,
-      };
-    }
-
-    throw this.errorAt(`Unknown modifier: @${nameToken.value}`, nameToken);
   }
 }
 

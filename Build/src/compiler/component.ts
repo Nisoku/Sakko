@@ -32,7 +32,7 @@ function formatCode(code: string): string {
     if (
       (trimmed === "}" ||
         trimmed.startsWith("});") ||
-        trimmed.startsWith("});") ||
+        trimmed.startsWith("])") ||
         trimmed.startsWith("})")) &&
       baseIndent > 0
     ) {
@@ -58,8 +58,20 @@ function formatCode(code: string): string {
   return result.join("\n");
 }
 
-export function compileComponent(root: RootNode): string {
-  const componentId = `comp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+}
+
+export function compileComponent(root: RootNode, options?: { id?: string }): string {
+  const componentId = options?.id 
+    ? `comp_${options.id}_${hashString(root.name)}`
+    : `comp_${hashString(root.name)}`;
   const componentName = toPascalCase(root.name);
 
   const ctx: ComponentContext = {
@@ -95,7 +107,7 @@ return root;
     .map((v) => `    case "${v}": return ${v};`)
     .join("\n");
 
-  const getSignalFn = `export function getSignal(signalName: string) {
+  const getSignalFn = `export function getSignal(signalName) {
   switch (signalName) {
 ${signalCases}
     default: return null;
@@ -170,11 +182,12 @@ function compileInlineNode(node: InlineNode, ctx: ComponentContext): string {
     const { static: isStatic, code } = compileInterpolation(
       node.value.parts,
       ctx,
+      elementVar,
     );
     if (isStatic) {
       lines.push(`${elementVar}.textContent = ${code};`);
     } else {
-      lines.push(code.replace(/element\./g, `${elementVar}.`));
+      lines.push(code);
     }
   }
 

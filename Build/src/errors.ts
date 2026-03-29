@@ -3,7 +3,7 @@ let logger: any = null;
 function getLogger(scope: string) {
   if (!logger) {
     try {
-      const satori = require("@nisoku/satori-log");
+      const satori = require("@nisoku/satori");
       const s = satori.createSatori({ logLevel: "error", enableConsole: true });
       logger = s.createLogger(scope);
     } catch {

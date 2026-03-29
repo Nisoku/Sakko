@@ -11,15 +11,12 @@ const componentRegistry = new Map<string, RegisteredComponent>();
 
 export function registerSakkoComponent(ast: RootNode): void {
   const componentCode = compileComponent(ast);
+  const componentName = toPascalCase(ast.name);
 
-  const factory = new Function(
-    "require",
-    `
-    const module = { exports: {} };
+  const factory = new Function(`
     ${componentCode}
-    return module.exports.${toPascalCase(ast.name)};
-    `,
-  )(require as any) as () => HTMLElement;
+    return ${componentName};
+  `)() as () => HTMLElement;
 
   componentRegistry.set(ast.name, {
     name: ast.name,
