@@ -92,35 +92,36 @@ import { bind, bindEvent, bindInputValue, bindInputChecked } from '@nisoku/sairi
 
   const stateCode = compileStateDeclarations(root.declarations, ctx);
   const effectCode = compileEffectDeclarations(root.declarations, ctx);
-
   const renderCode = compileChildren(root.children, ctx);
 
   const signalPopulations = [...ctx.stateVars, ...ctx.derivedVars]
     .map((v) => `  signals["${v}"] = ${v};`)
     .join("\n");
 
-  const componentFn = `const signals = {};
+  const componentFn = `export function ${componentName}(id = ${JSON.stringify(componentId)}) {
+  const signals = {};
+  instanceSignals.set(id, signals);
 
-export function ${componentName}(id = "${componentId}") {
 ${stateCode}
 
 ${effectCode}
 
 ${signalPopulations}
 
-const root = document.createElement('div');
-root.className = '${root.name}';
+  const root = document.createElement('div');
+  root.className = ${JSON.stringify(root.name)};
 
 ${renderCode}
 
-return root;
+  return root;
 }`;
 
-  const getSignalFn = `export function getSignal(signalName) {
-  return signals[signalName] || null;
+  const getSignalFn = `export function getSignal(id, signalName) {
+  const signals = instanceSignals.get(id);
+  return signals ? (signals[signalName] || null) : null;
 }`;
 
-  return formatCode([imports, "", componentFn, "", getSignalFn].join("\n\n"));
+  return formatCode([imports, "const instanceSignals = new Map();", "", componentFn, "", getSignalFn].join("\n\n"));
 }
 
 function compileChildren(children: ASTNode[], ctx: ComponentContext, parentVar: string = "root"): string {
@@ -183,7 +184,7 @@ function compileInlineNode(node: InlineNode, ctx: ComponentContext, parentVar: s
   }
 
   if (typeof node.value === "string") {
-    lines.push(`${elementVar}.textContent = "${node.value}";`);
+    lines.push(`${elementVar}.textContent = ${JSON.stringify(node.value)};`);
   } else if (
     node.value &&
     typeof node.value === "object" &&

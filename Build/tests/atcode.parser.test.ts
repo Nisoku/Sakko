@@ -165,4 +165,14 @@ describe("Parser - Atcode Declarations", () => {
 
     expect(() => parseSakko(input)).toThrow("Event handlers must use block syntax");
   });
+
+  test("throws on malformed @state declaration", () => {
+    const input = `<app {
+      @state {
+        invalid_no_equals
+      }
+    }>`;
+
+    expect(() => parseSakko(input)).toThrow("Expected variable declaration");
+  });
 });

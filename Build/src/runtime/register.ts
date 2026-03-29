@@ -17,7 +17,12 @@ export function registerSakkoComponent(ast: RootNode): void {
 
   // Transform ESM to simple CJS-like eval format
   const evalCode = componentCode
-    .replace(/import\s+{([^}]+)}\s+from\s+['"]([^'"]+)['"];?/g, 'const {$1} = require(\'$2\');')
+    .replace(/import\s+{([\s\S]*?)}\s+from\s+['"]([^'"]+)['"];?/g, (match, p1, p2) => {
+      const cleaned = p1.replace(/\s+/g, ' ').trim();
+      return `const {${cleaned}} = require('${p2}');`;
+    })
+    .replace(/export\s+default\s+function/g, 'module.exports = function')
+    .replace(/export\s+default\s+/g, 'module.exports = ')
     .replace(/export\s+function/g, 'function')
     .replace(/export\s+const/g, 'const');
 
@@ -50,12 +55,21 @@ export function registerSakkoComponent(ast: RootNode): void {
           }
 
           private _rendered = false;
+          private _component: HTMLElement | null = null;
 
           connectedCallback() {
             if (this._rendered) return;
-            const component = factory();
-            this.shadowRoot!.appendChild(component);
+            this._component = factory();
+            this.shadowRoot!.appendChild(this._component);
             this._rendered = true;
+          }
+
+          disconnectedCallback() {
+            if (this._component) {
+              this.shadowRoot!.innerHTML = "";
+              this._component = null;
+            }
+            this._rendered = false;
           }
         },
       );

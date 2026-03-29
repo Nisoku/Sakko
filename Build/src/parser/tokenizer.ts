@@ -280,7 +280,7 @@ function tokenizeStringWithInterpolation(
     throw new Error(`Unterminated string at line ${currentLine}, col ${textStartCol}`);
   }
 
-  if (textBuffer || tokens.length === 0) {
+  if (textBuffer.length > 0 || tokens.length === 0) {
     tokens.push({
       type: "STRING",
       value: textBuffer,

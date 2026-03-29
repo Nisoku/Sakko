@@ -74,7 +74,7 @@ function addGetCallsToStateVars(code: string, ctx: ComponentContext): string {
 
     const escapedVarName = escapeRegExp(varName);
     const regex = new RegExp(
-      `(?<![A-Za-z0-9_$])${escapedVarName}(?![A-Za-z0-9_$])(?!\\.get|\\.set|\\s*=|\\[)`,
+      `(?<![A-Za-z0-9_$.])${escapedVarName}(?![A-Za-z0-9_$])(?!\\.get|\\.set|\\s*=|\\[)`,
       "g",
     );
     result = result.replace(regex, `${varName}.get()`);
@@ -181,7 +181,17 @@ export function compileClassModifier(
   const el = elementVar || "element";
   const exprWithGets = addGetCallsToStateVars(expr, ctx);
 
-  return `effect(() => {\n  const classVal = ${exprWithGets};\n  if (typeof classVal === 'string') {\n    ${el}.className = classVal;\n  } else if (typeof classVal === 'object' && classVal !== null) {\n    for (const [cls, active] of Object.entries(classVal)) {\n      if (active) ${el}.classList.add(cls);\n      else ${el}.classList.remove(cls);\n    }\n  }\n});`;
+  return `effect(() => {
+    const classVal = ${exprWithGets};
+    if (typeof classVal === 'string') {
+      ${el}.className = classVal;
+    } else if (typeof classVal === 'object' && classVal !== null) {
+      for (const [cls, active] of Object.entries(classVal)) {
+        if (active) ${el}.classList.add(cls);
+        else ${el}.classList.remove(cls);
+      }
+    }
+  });`;
 }
 
 function escapeRegExp(str: string): string {
@@ -219,7 +229,7 @@ export function compileInterpolation(
         if (!/^[A-Za-z_]\w*$/.test(varName)) continue;
         const escapedVarName = escapeRegExp(varName);
         expr = expr.replace(
-          new RegExp(`(?<![A-Za-z0-9_$])${escapedVarName}(?![A-Za-z0-9_$])`, "g"),
+          new RegExp(`(?<![A-Za-z0-9_$.])${escapedVarName}(?![A-Za-z0-9_$])`, "g"),
           `${varName}.get()`,
         );
       }

@@ -73,8 +73,24 @@ describe("Compiler - Atcode Compilation", () => {
     const ast = parseSakko(input);
     const compiled = compileComponent(ast);
     
-    expect(compiled).toContain('bindEvent(button0, "click"');
+    expect(compiled).toContain('bindEvent(button0, "click", (e) => {');
     expect(compiled).toContain('count.set');
+  });
+
+  test("compiles event handler with e.target.value", () => {
+    const input = `<app {
+      @state {
+        value = ""
+      }
+      input @on:input { value = e.target.value }: ""
+    }>`;
+
+    const ast = parseSakko(input);
+    const compiled = compileComponent(ast);
+    
+    expect(compiled).toContain('bindEvent(input0, "input", (e) => {');
+    expect(compiled).toContain('value.set(e.target.value)');
+    expect(compiled).not.toContain('value.get()'); // RHS should not have get() for e.target.value
   });
 
   test("compiles compound assignment", () => {
@@ -150,7 +166,8 @@ describe("Compiler - Atcode Compilation", () => {
     const ast = parseSakko(input);
     const compiled = compileComponent(ast);
     
-    expect(compiled).toContain('export function getSignal');
-    expect(compiled).toContain('return signals[signalName]');
+    expect(compiled).toContain('const instanceSignals = new Map();');
+    expect(compiled).toContain('export function getSignal(id, signalName)');
+    expect(compiled).toContain('const signals = instanceSignals.get(id);');
   });
 });

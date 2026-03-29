@@ -27,19 +27,17 @@ export function parseStateDeclaration(
     }
 
     const varToken = parser.peek();
-    if (!varToken || varToken.type !== "IDENT") {
+    const isVarDecl = varToken?.type === "IDENT" && parser.peekAheadIs("EQUALS");
+
+    if (!isVarDecl) {
       if (declarations.length === 0) {
         throw parser.errorAt("Expected variable declaration", varToken);
       }
       break;
     }
 
-    if (!parser.peekAheadIs("EQUALS")) {
-      break;
-    }
-
-    parser.consume();
-    const varName = varToken.value;
+    parser.consume(); // Consume IDENT
+    const varName = varToken!.value;
 
     parser.expect("EQUALS");
     const valueExpr = parser.parseExpression();

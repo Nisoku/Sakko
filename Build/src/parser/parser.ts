@@ -520,7 +520,8 @@ export function parseSakko(input: string): RootNode {
 
   // Auto-wrap input that doesn't start with '<' - treat as component body
   if (trimmed && !trimmed.startsWith("<")) {
-    input = `<wrapper {\n${trimmed}\n}>`;
+    // We use a reserved sentinel name to avoid collisions with user components
+    input = `<__sakko_wrapper__ {\n${trimmed}\n}>`;
   }
 
   // Debug: log the wrapped input
