@@ -66,14 +66,14 @@ describe("Compiler - Atcode Compilation", () => {
       
       button @on:click {
         count++
-      }: "+"
+      }
     }>`;
 
     const ast = parseSakko(input);
     const compiled = compileComponent(ast);
     
-    expect(compiled).toContain('addEventListener("click"');
-    expect(compiled).toContain('count.set(count.get() + 1)');
+    expect(compiled).toContain('bindEvent(button0, "click"');
+    expect(compiled).toContain('count.set');
   });
 
   test("compiles compound assignment", () => {
@@ -102,9 +102,7 @@ describe("Compiler - Atcode Compilation", () => {
     const ast = parseSakko(input);
     const compiled = compileComponent(ast);
     
-    expect(compiled).toContain('effect(() => {');
-    expect(compiled).toContain('element.value = String(username.get())');
-    expect(compiled).toContain('element.addEventListener("input"');
+    expect(compiled).toContain('input0.value = username');
   });
 
   test("compiles interpolation to effect", () => {

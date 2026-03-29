@@ -1,69 +1,30 @@
 import { tokenize, type Token } from "./tokenizer";
 import { parserError } from "../errors";
+import { parseAtcodeDeclaration } from "./atcodes";
+import { parseInlineModifier } from "./atcodes/modifiers";
+import type {
+  Modifier,
+  InterpolatedTextPart,
+  InterpolatedText,
+  AtcodeDeclaration,
+  RootNode,
+  ElementNode,
+  InlineNode,
+  ListNode,
+  ASTNode,
+} from "./types";
 
-export type Modifier =
-  | { type: "flag"; value: string }
-  | { type: "pair"; key: string; value: string }
-  | { type: "atcode"; name: string; body: string }
-  | { type: "event"; event: string; handler: string };
-
-export type InterpolatedTextPart = 
-  | { type: "text"; value: string }
-  | { type: "expr"; value: string };
-
-export type InterpolatedText = {
-  type: "interpolated";
-  parts: InterpolatedTextPart[];
+export type {
+  Modifier,
+  InterpolatedTextPart,
+  InterpolatedText,
+  AtcodeDeclaration,
+  RootNode,
+  ElementNode,
+  InlineNode,
+  ListNode,
+  ASTNode,
 };
-
-export type AtcodeDeclaration =
-  | { 
-      type: "state"; 
-      declarations: Array<{ name: string; value: string }>; 
-      line: number; 
-      col: number;
-    }
-  | { 
-      type: "effect"; 
-      body: string;
-      line: number; 
-      col: number;
-    }
-  | { 
-      type: "derived"; 
-      declarations: Array<{ name: string; expr: string }>; 
-      line: number; 
-      col: number;
-    };
-
-export type RootNode = {
-  type: "root";
-  name: string;
-  modifiers: Modifier[];
-  declarations: AtcodeDeclaration[];
-  children: ASTNode[];
-};
-
-export type ElementNode = {
-  type: "element";
-  name: string;
-  modifiers: Modifier[];
-  children: ASTNode[];
-};
-
-export type InlineNode = {
-  type: "inline";
-  name: string;
-  modifiers: Modifier[];
-  value: string | InterpolatedText;
-};
-
-export type ListNode = {
-  type: "list";
-  items: ASTNode[];
-};
-
-export type ASTNode = ElementNode | InlineNode | ListNode;
 
 const KNOWN_KEYS = new Set([
   "cols",
@@ -106,10 +67,10 @@ export class Parser {
   }
 
   private errorAt(msg: string, token?: Token): Error {
-    parserError(msg, { 
-      line: token?.line, 
+    parserError(msg, {
+      line: token?.line,
       column: token?.col,
-      suggestion: this._getSuggestion(msg)
+      suggestion: this._getSuggestion(msg),
     });
     if (!token || !this.source) return new Error(msg);
     const lines = this.source.split("\n");
@@ -121,7 +82,8 @@ export class Parser {
   }
 
   private _getSuggestion(msg: string): string | undefined {
-    if (msg.includes("Unexpected end of input")) return "Check for missing closing brackets";
+    if (msg.includes("Unexpected end of input"))
+      return "Check for missing closing brackets";
     if (msg.includes("Expected")) return "Add the expected token";
     if (msg.includes("Unexpected token")) return "Remove or replace this token";
     return undefined;
@@ -191,11 +153,13 @@ export class Parser {
         const atPosition = this.position;
         this.consume();
         const nextToken = this.peek();
-        
-        if (nextToken?.type === "IDENT" && 
-            (nextToken.value === "state" || 
-             nextToken.value === "effect" || 
-             nextToken.value === "derived")) {
+
+        if (
+          nextToken?.type === "IDENT" &&
+          (nextToken.value === "state" ||
+            nextToken.value === "effect" ||
+            nextToken.value === "derived")
+        ) {
           this.position = atPosition;
           declarations.push(this.parseAtcodeDeclaration());
         } else {
@@ -222,30 +186,49 @@ export class Parser {
     const name = nameToken.value;
 
     if (name === "state") {
-      this.expect("LBRACE");
-      
+      // Support both @state { ... } and @state (no braces)
+      const hasBraces = this.check("LBRACE");
+      if (hasBraces) this.consume();
+
       const declarations: Array<{ name: string; value: string }> = [];
-      
-      while (!this.check("RBRACE")) {
-        const varToken = this.expect("IDENT");
-        const varName = varToken.value;
-        this.expect("EQUALS");
-        
-        const valueExpr = this.parseExpression();
-        
-        declarations.push({ name: varName, value: valueExpr });
-        
-        if (this.check("SEMI") || this.check("COMMA")) {
+
+      // Parse declarations until we hit RBRACE (if braces) or EOF
+      while (true) {
+        if (!this.peek()) break;
+
+        // Check for closing brace (if using braces)
+        if (hasBraces && this.check("RBRACE")) {
           this.consume();
-        } else if (this.check("IDENT") && this.peekAheadIs("EQUALS")) {
-          // New declaration starting without semicolon, this is valid in vertical style
-        } else if (this.check("RBRACE")) {
-          // End of block
+          break;
+        }
+
+        // Skip optional 'const' keyword
+        if (this.check("IDENT") && this.peek()?.value === "const") {
+          this.consume();
+        }
+
+        const varToken = this.peek();
+        if (!varToken || varToken.type !== "IDENT") {
+          break;
+        }
+
+        this.consume();
+        const varName = varToken.value;
+
+        // Check for = after the identifier
+        if (this.check("EQUALS")) {
+          this.consume();
+          const valueExpr = this.parseExpression();
+          declarations.push({ name: varName, value: valueExpr });
+
+          if (this.check("SEMI") || this.check("COMMA")) {
+            this.consume();
+          }
+        } else {
+          this.position--;
           break;
         }
       }
-      
-      this.expect("RBRACE");
 
       return {
         type: "state",
@@ -256,11 +239,18 @@ export class Parser {
     }
 
     if (name === "effect") {
-      this.expect("LBRACE");
-      
-      const body = this.parseBlockBody();
-      
-      this.expect("RBRACE");
+      // Support both @effect { ... } and @effect (no braces)
+      const hasBraces = this.check("LBRACE");
+      if (hasBraces) this.consume();
+
+      let body = "";
+      if (hasBraces) {
+        body = this.parseBlockBody();
+        this.expect("RBRACE");
+      } else {
+        // Parse until we hit a new statement
+        body = this.parseExpression();
+      }
 
       return {
         type: "effect",
@@ -271,28 +261,47 @@ export class Parser {
     }
 
     if (name === "derived") {
-      this.expect("LBRACE");
-      
-      const declarations: Array<{ name: string; expr: string }> = [];
-      
-      while (!this.check("RBRACE")) {
-        const varToken = this.expect("IDENT");
-        const varName = varToken.value;
-        this.expect("EQUALS");
-        const expr = this.parseExpression();
+      // Support both @derived { ... } and @derived (no braces)
+      const hasBraces = this.check("LBRACE");
+      if (hasBraces) this.consume();
 
-        declarations.push({ name: varName, expr });
-        
-        if (this.check("SEMI") || this.check("COMMA")) {
+      const declarations: Array<{ name: string; expr: string }> = [];
+
+      while (true) {
+        if (!this.peek()) break;
+
+        // Check for closing brace (if using braces)
+        if (hasBraces && this.check("RBRACE")) {
           this.consume();
-        } else if (this.check("IDENT") && this.peekAheadIs("EQUALS")) {
-          // New declaration starting without semicolon, this is valid in vertical style
-        } else if (this.check("RBRACE")) {
+          break;
+        }
+
+        // Skip optional 'const' keyword
+        if (this.check("IDENT") && this.peek()?.value === "const") {
+          this.consume();
+        }
+
+        const varToken = this.peek();
+        if (!varToken || varToken.type !== "IDENT") {
+          break;
+        }
+
+        this.consume();
+        const varName = varToken.value;
+
+        if (this.check("EQUALS")) {
+          this.consume();
+          const expr = this.parseExpression();
+          declarations.push({ name: varName, expr });
+
+          if (this.check("SEMI") || this.check("COMMA")) {
+            this.consume();
+          }
+        } else {
+          this.position--;
           break;
         }
       }
-      
-      this.expect("RBRACE");
 
       return {
         type: "derived",
@@ -302,7 +311,13 @@ export class Parser {
       };
     }
 
-    throw this.errorAt(`Unknown atcode: @${name}`, nameToken);
+    // Unknown atcode - try to parse generically
+    return {
+      type: "effect",
+      body: name,
+      line: atToken.line,
+      col: atToken.col,
+    };
   }
 
   parseBlockBody(): string {
@@ -311,12 +326,12 @@ export class Parser {
 
     while (this.peek() && (braceDepth > 0 || !this.check("RBRACE"))) {
       const token = this.peek();
-      
+
       if (token?.type === "LBRACE") braceDepth++;
       if (token?.type === "RBRACE" && braceDepth > 0) braceDepth--;
-      
+
       if (braceDepth === 0 && token?.type === "RBRACE") break;
-      
+
       if (token) {
         if (token.type === "STRING") {
           body += `"${token.value}"`;
@@ -340,7 +355,11 @@ export class Parser {
       const token = this.peek();
 
       if (parenDepth === 0 && braceDepth === 0 && bracketDepth === 0) {
-        if (token?.type === "SEMI" || token?.type === "RBRACE" || token?.type === "COMMA") {
+        if (
+          token?.type === "SEMI" ||
+          token?.type === "RBRACE" ||
+          token?.type === "COMMA"
+        ) {
           break;
         }
         if (token?.type === "IDENT" && this.peekAheadIs("EQUALS")) {
@@ -380,7 +399,7 @@ export class Parser {
       if (this.check("LPAREN")) {
         modifiers.push(...this.parseModifiers());
       }
-      
+
       if (this.check("AT")) {
         modifiers.push(this.parseInlineModifier());
       }
@@ -463,14 +482,14 @@ export class Parser {
       if (this.check("AT")) {
         const atToken = this.consume();
         const nameToken = this.expect("IDENT");
-        
+
         if (nameToken.value === "on") {
           this.expect("COLON");
           const eventToken = this.expect("IDENT");
           const event = eventToken.value;
-          
+
           let handler: string;
-          
+
           if (this.check("LBRACE")) {
             this.consume();
             handler = this.parseBlockBody();
@@ -478,7 +497,7 @@ export class Parser {
           } else {
             throw this.errorAt(
               "Event handlers must use block syntax: @on:click { ... }",
-              this.peek()
+              this.peek(),
             );
           }
 
@@ -492,8 +511,8 @@ export class Parser {
 
         if (nameToken.value === "bind") {
           this.expect("EQUALS");
-          const signal = this.check("STRING") 
-            ? this.consume().value 
+          const signal = this.check("STRING")
+            ? this.consume().value
             : this.expect("IDENT").value;
 
           modifiers.push({
@@ -506,7 +525,7 @@ export class Parser {
 
         throw this.errorAt(
           `Atcode @${nameToken.value} not yet supported in modifiers`,
-          nameToken
+          nameToken,
         );
       }
 
@@ -565,7 +584,7 @@ export class Parser {
 
   parseInterpolatedValue(): string | InterpolatedText {
     const parts: InterpolatedTextPart[] = [];
-    
+
     while (this.check("STRING") || this.check("INTERP_START")) {
       if (this.check("STRING")) {
         const text = this.consume().value;
@@ -573,7 +592,7 @@ export class Parser {
           parts.push({ type: "text", value: text });
         }
       }
-      
+
       if (this.check("INTERP_START")) {
         this.consume();
         const expr = this.expect("EXPR").value;
@@ -596,14 +615,14 @@ export class Parser {
   parseInlineModifier(): Modifier {
     const atToken = this.consume();
     const nameToken = this.expect("IDENT");
-    
+
     if (nameToken.value === "on") {
       this.expect("COLON");
       const eventToken = this.expect("IDENT");
       const event = eventToken.value;
-      
+
       let handler: string;
-      
+
       if (this.check("LBRACE")) {
         this.consume();
         handler = this.parseBlockBody();
@@ -611,7 +630,7 @@ export class Parser {
       } else {
         throw this.errorAt(
           "Event handlers must use block syntax: @on:click { ... }",
-          this.peek()
+          this.peek(),
         );
       }
 
@@ -622,10 +641,48 @@ export class Parser {
       };
     }
 
+    // Support @on:eventName handler (e.g., @on:click { count++ })
+    if (nameToken.value === "on") {
+      this.expect("COLON");
+      const eventToken = this.expect("IDENT");
+      const event = eventToken.value;
+
+      let handler = "";
+
+      if (this.check("LBRACE")) {
+        this.consume();
+        handler = this.parseBlockBody();
+        this.expect("RBRACE");
+      } else if (this.check("IDENT")) {
+        handler = this.consume().value;
+      } else {
+        handler = "() => {}";
+      }
+
+      return {
+        type: "event",
+        event,
+        handler,
+      };
+    }
+
+    // Support @class:classname (e.g., @class:active)
+    if (nameToken.value === "class") {
+      this.expect("COLON");
+      const classToken = this.expect("IDENT");
+      const className = classToken.value;
+
+      return {
+        type: "atcode",
+        name: "class",
+        body: className,
+      };
+    }
+
     if (nameToken.value === "bind") {
       this.expect("EQUALS");
-      const signal = this.check("STRING") 
-        ? this.consume().value 
+      const signal = this.check("STRING")
+        ? this.consume().value
         : this.expect("IDENT").value;
 
       return {
@@ -635,10 +692,7 @@ export class Parser {
       };
     }
 
-    throw this.errorAt(
-      `Unknown modifier: @${nameToken.value}`,
-      nameToken
-    );
+    throw this.errorAt(`Unknown modifier: @${nameToken.value}`, nameToken);
   }
 }
 
@@ -679,6 +733,16 @@ function stripComments(input: string): string {
 }
 
 export function parseSakko(input: string): RootNode {
+  const trimmed = input.trim();
+
+  // Auto-wrap input that doesn't start with '<' - treat as component body
+  if (trimmed && !trimmed.startsWith("<")) {
+    input = `<wrapper {\n${trimmed}\n}>`;
+  }
+
+  // Debug: log the wrapped input
+  // console.log("Parsing:", input);
+
   const tokens = tokenize(input);
   if (tokens.length === 0) {
     parserError("Empty input", { suggestion: "Add some content to parse" });

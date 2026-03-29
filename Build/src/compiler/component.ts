@@ -1,4 +1,9 @@
-import type { RootNode, ASTNode, InlineNode, ElementNode } from "../parser/parser";
+import type {
+  RootNode,
+  ASTNode,
+  InlineNode,
+  ElementNode,
+} from "../parser/parser";
 import {
   type ComponentContext,
   compileStateDeclarations,
@@ -6,6 +11,7 @@ import {
   compileEventHandler,
   compileBindModifier,
   compileInterpolation,
+  nextElementId,
 } from "./atcode";
 
 function formatCode(code: string): string {
@@ -16,16 +22,22 @@ function formatCode(code: string): string {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
-    
+
     if (!trimmed) {
       result.push("");
       continue;
     }
 
     // Check if this line closes something that was opened on a previous line
-    if ((trimmed === "}" || trimmed.startsWith("});") || trimmed.startsWith("});") || trimmed.startsWith("})")) && baseIndent > 0) {
+    if (
+      (trimmed === "}" ||
+        trimmed.startsWith("});") ||
+        trimmed.startsWith("});") ||
+        trimmed.startsWith("})")) &&
+      baseIndent > 0
+    ) {
       // But first check if previous line was an opening
-      const prevTrimmed = i > 0 ? lines[i-1].trim() : "";
+      const prevTrimmed = i > 0 ? lines[i - 1].trim() : "";
       if (!prevTrimmed.endsWith("{") && !prevTrimmed.includes(") {")) {
         baseIndent--;
       }
@@ -34,7 +46,11 @@ function formatCode(code: string): string {
     result.push("  ".repeat(baseIndent) + trimmed);
 
     // Increase indent after this line if it opens a block
-    if (trimmed.endsWith("{") || trimmed.includes(") {") || trimmed.includes("=> {")) {
+    if (
+      trimmed.endsWith("{") ||
+      trimmed.includes(") {") ||
+      trimmed.includes("=> {")
+    ) {
       baseIndent++;
     }
   }
@@ -51,13 +67,15 @@ export function compileComponent(root: RootNode): string {
     componentName,
     stateVars: new Set(),
     derivedVars: new Set(),
+    elementIndex: 0,
   };
 
-  const imports = `import { signal, effect, derived, path } from '@nisoku/sairin';`;
-  
+  const imports = `import { signal, effect, derived, path } from '@nisoku/sairin';
+import { bindEvent } from '@nisoku/sairin';`;
+
   const stateCode = compileStateDeclarations(root.declarations, ctx);
   const effectCode = compileEffectDeclarations(root.declarations, ctx);
-  
+
   const renderCode = compileChildren(root.children, ctx);
 
   const componentFn = `export function ${componentName}(id = "${componentId}") {
@@ -74,9 +92,9 @@ return root;
 }`;
 
   const signalCases = [...ctx.stateVars, ...ctx.derivedVars]
-    .map(v => `    case "${v}": return ${v};`)
+    .map((v) => `    case "${v}": return ${v};`)
     .join("\n");
-  
+
   const getSignalFn = `export function getSignal(signalName: string) {
   switch (signalName) {
 ${signalCases}
@@ -87,10 +105,7 @@ ${signalCases}
   return formatCode([imports, "", componentFn, "", getSignalFn].join("\n\n"));
 }
 
-function compileChildren(
-  children: ASTNode[],
-  ctx: ComponentContext
-): string {
+function compileChildren(children: ASTNode[], ctx: ComponentContext): string {
   const lines: string[] = [];
 
   for (const child of children) {
@@ -112,15 +127,15 @@ function compileChildren(
   return lines.join("\n\n");
 }
 
-function compileInlineNode(
-  node: InlineNode,
-  ctx: ComponentContext
-): string {
-  const elementVar = `${node.name}Element`;
-  
+function compileInlineNode(node: InlineNode, ctx: ComponentContext): string {
+  const idx = nextElementId(ctx);
+  const elementVar = `${node.name}${idx}`;
+
   const lines: string[] = [];
   lines.push(`// ${node.name}`);
-  lines.push(`const ${elementVar} = document.createElement('saz-${node.name}');`);
+  lines.push(
+    `const ${elementVar} = document.createElement('saz-${node.name}');`,
+  );
 
   for (const mod of node.modifiers) {
     if (mod.type === "flag") {
@@ -128,22 +143,38 @@ function compileInlineNode(
     } else if (mod.type === "pair") {
       lines.push(`${elementVar}.setAttribute('${mod.key}', '${mod.value}');`);
     } else if (mod.type === "event") {
-      const handlerCode = compileEventHandler(mod, ctx);
+      const handlerCode = compileEventHandler(mod, ctx, elementVar);
       lines.push(handlerCode);
     } else if (mod.type === "atcode" && mod.name === "bind") {
-      const bindCode = compileBindModifier(mod.body, node.name, ctx);
-      lines.push(bindCode);
+      const bindResult = compileBindModifier(
+        mod.body,
+        node.name,
+        ctx,
+        elementVar,
+      );
+      if (bindResult.bindingType === "two-way" && node.name === "input") {
+        lines.push(`${elementVar}.value = ${bindResult.signalName};`);
+      } else {
+        lines.push(bindResult.code);
+      }
     }
   }
 
   if (typeof node.value === "string") {
     lines.push(`${elementVar}.textContent = "${node.value}";`);
-  } else if (node.value && typeof node.value === "object" && "parts" in node.value) {
-    const { static: isStatic, code } = compileInterpolation(node.value.parts, ctx);
+  } else if (
+    node.value &&
+    typeof node.value === "object" &&
+    "parts" in node.value
+  ) {
+    const { static: isStatic, code } = compileInterpolation(
+      node.value.parts,
+      ctx,
+    );
     if (isStatic) {
       lines.push(`${elementVar}.textContent = ${code};`);
     } else {
-      lines.push(code);
+      lines.push(code.replace(/element\./g, `${elementVar}.`));
     }
   }
 
@@ -152,15 +183,15 @@ function compileInlineNode(
   return lines.join("\n");
 }
 
-function compileElementNode(
-  node: ElementNode,
-  ctx: ComponentContext
-): string {
-  const elementVar = `${node.name}Container`;
-  
+function compileElementNode(node: ElementNode, ctx: ComponentContext): string {
+  const idx = nextElementId(ctx);
+  const elementVar = `${node.name}${idx}`;
+
   const lines: string[] = [];
   lines.push(`// ${node.name} container`);
-  lines.push(`const ${elementVar} = document.createElement('saz-${node.name}');`);
+  lines.push(
+    `const ${elementVar} = document.createElement('saz-${node.name}');`,
+  );
 
   for (const mod of node.modifiers) {
     if (mod.type === "flag") {
@@ -168,11 +199,20 @@ function compileElementNode(
     } else if (mod.type === "pair") {
       lines.push(`${elementVar}.setAttribute('${mod.key}', '${mod.value}');`);
     } else if (mod.type === "event") {
-      const handlerCode = compileEventHandler(mod, ctx);
+      const handlerCode = compileEventHandler(mod, ctx, elementVar);
       lines.push(handlerCode);
     } else if (mod.type === "atcode" && mod.name === "bind") {
-      const bindCode = compileBindModifier(mod.body, node.name, ctx);
-      lines.push(bindCode);
+      const bindResult = compileBindModifier(
+        mod.body,
+        node.name,
+        ctx,
+        elementVar,
+      );
+      if (bindResult.bindingType === "two-way" && node.name === "input") {
+        lines.push(`${elementVar}.value = ${bindResult.signalName};`);
+      } else {
+        lines.push(bindResult.code);
+      }
     }
   }
 
@@ -189,6 +229,6 @@ function compileElementNode(
 function toPascalCase(str: string): string {
   return str
     .split(/[-_]/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join("");
 }

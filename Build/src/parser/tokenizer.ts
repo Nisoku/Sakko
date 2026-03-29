@@ -21,7 +21,8 @@ export type TokenType =
   | "EXPR"
   | "DOT"
   | "PLUS"
-  | "MINUS";
+  | "MINUS"
+  | "STAR";
 
 export type Token = {
   type: TokenType;
@@ -93,6 +94,7 @@ export function tokenize(input: string): Token[] {
       ".": "DOT",
       "+": "PLUS",
       "-": "MINUS",
+      "*": "STAR",
     };
 
     if (SYMBOLS[ch]) {
@@ -106,19 +108,25 @@ export function tokenize(input: string): Token[] {
       const startCol = col;
       i++;
       col++;
-      
+
       const remaining = input.slice(i);
       const hasInterpolation = /\{[a-zA-Z_$]/.test(remaining);
-      
+
       if (hasInterpolation) {
-        const result = tokenizeStringWithInterpolation(input, i, line, col, startCol);
+        const result = tokenizeStringWithInterpolation(
+          input,
+          i,
+          line,
+          col,
+          startCol,
+        );
         tokens.push(...result.tokens);
         i = result.endIndex + 1;
         line = result.endLine;
         col = result.endCol + 1;
         continue;
       }
-      
+
       let str = "";
       while (i < input.length && input[i] !== '"') {
         if (input[i] === "\n") {
@@ -184,7 +192,7 @@ function tokenizeStringWithInterpolation(
   let textStartCol = currentCol;
 
   while (i < input.length && input[i] !== '"') {
-    if (input[i] === '{') {
+    if (input[i] === "{") {
       if (textBuffer) {
         tokens.push({
           type: "STRING",
@@ -195,7 +203,12 @@ function tokenizeStringWithInterpolation(
         textBuffer = "";
       }
 
-      tokens.push({ type: "INTERP_START", value: '{', line: currentLine, col: currentCol });
+      tokens.push({
+        type: "INTERP_START",
+        value: "{",
+        line: currentLine,
+        col: currentCol,
+      });
       i++;
       currentCol++;
 
@@ -204,14 +217,14 @@ function tokenizeStringWithInterpolation(
       const exprStartCol = currentCol;
 
       while (i < input.length && braceDepth > 0) {
-        if (input[i] === '{') braceDepth++;
-        if (input[i] === '}') braceDepth--;
+        if (input[i] === "{") braceDepth++;
+        if (input[i] === "}") braceDepth--;
 
         if (braceDepth > 0) {
           expr += input[i];
         }
 
-        if (input[i] === '\n') {
+        if (input[i] === "\n") {
           currentLine++;
           currentCol = 1;
         } else {
@@ -220,15 +233,25 @@ function tokenizeStringWithInterpolation(
         i++;
       }
 
-      tokens.push({ type: "EXPR", value: expr.trim(), line: currentLine, col: exprStartCol });
-      tokens.push({ type: "INTERP_END", value: '}', line: currentLine, col: currentCol - 1 });
+      tokens.push({
+        type: "EXPR",
+        value: expr.trim(),
+        line: currentLine,
+        col: exprStartCol,
+      });
+      tokens.push({
+        type: "INTERP_END",
+        value: "}",
+        line: currentLine,
+        col: currentCol - 1,
+      });
 
       textStartCol = currentCol;
       continue;
     }
 
     textBuffer += input[i];
-    if (input[i] === '\n') {
+    if (input[i] === "\n") {
       currentLine++;
       currentCol = 1;
     } else {

@@ -17,7 +17,7 @@ try {
   const source = readFileSync(inputFile, "utf-8");
   const ast = parseSakko(source);
   const compiled = compileComponent(ast);
-  
+
   writeFileSync(outputFile, compiled, "utf-8");
   console.log(`Compiled ${inputFile} -> ${outputFile}`);
 } catch (err) {

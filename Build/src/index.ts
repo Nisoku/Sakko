@@ -14,7 +14,38 @@ export type {
 export type { Token, TokenType } from "./parser/tokenizer";
 
 export { compileComponent } from "./compiler/component";
-export { compileStateDeclarations, compileEffectDeclarations, compileEventHandler } from "./compiler/atcode";
+export {
+  compileStateDeclarations,
+  compileEffectDeclarations,
+  compileEventHandler,
+} from "./compiler/atcode";
 export type { ComponentContext } from "./compiler/atcode";
 
-export { registerSakkoComponent, getComponent, getComponentSource, getAllComponents } from "./runtime/register";
+export {
+  registerSakkoComponent,
+  getComponent,
+  getComponentSource,
+  getAllComponents,
+} from "./runtime/register";
+
+export function compile(code: string): { code: string; ast?: any } {
+  const { parseSakko } = require("./parser/parser");
+  const { compileComponent } = require("./compiler/component");
+
+  try {
+    const ast = parseSakko(code);
+    const compiled = compileComponent(ast);
+    return { code: compiled, ast };
+  } catch (e) {
+    return { code: `// Error: ${e}` };
+  }
+}
+
+export function compileAtCode(code: string): { code: string } {
+  const trimmed = code.trim();
+  if (!trimmed.startsWith("<")) {
+    // Preserve newlines and indentation properly
+    return compile(`<wrapper {\n${trimmed}\n}>`);
+  }
+  return compile(code);
+}

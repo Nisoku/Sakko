@@ -11,14 +11,14 @@ const componentRegistry = new Map<string, RegisteredComponent>();
 
 export function registerSakkoComponent(ast: RootNode): void {
   const componentCode = compileComponent(ast);
-  
+
   const factory = new Function(
-    'require',
+    "require",
     `
     const module = { exports: {} };
     ${componentCode}
     return module.exports.${toPascalCase(ast.name)};
-    `
+    `,
   )(require as any) as () => HTMLElement;
 
   componentRegistry.set(ast.name, {
@@ -42,7 +42,7 @@ export function registerSakkoComponent(ast: RootNode): void {
             const component = factory();
             this.shadowRoot!.appendChild(component);
           }
-        }
+        },
       );
     }
   }
@@ -63,6 +63,6 @@ export function getComponentSource(name: string): string | undefined {
 function toPascalCase(str: string): string {
   return str
     .split(/[-_]/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join("");
 }

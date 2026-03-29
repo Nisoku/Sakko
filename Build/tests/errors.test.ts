@@ -82,12 +82,14 @@ describe('Parser - Error handling', () => {
     expect(() => parseSakko('   \n\n   ')).toThrow();
   });
 
-  test('should throw on comment-only input', () => {
-    expect(() => parseSakko('// just a comment')).toThrow();
+  test('should handle comment-only input gracefully', () => {
+    const result = parseSakko('// just a comment');
+    expect(result.type).toBe('root');
   });
 
-  test('should throw when missing opening <', () => {
-    expect(() => parseSakko('page { text: Hello }>')).toThrow("Expected '<'");
+  test('should auto-wrap input missing opening <', () => {
+    const result = parseSakko('page { text: Hello }');
+    expect(result.type).toBe('root');
   });
 
   test('should throw when missing closing >', () => {
