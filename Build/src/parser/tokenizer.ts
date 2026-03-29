@@ -233,6 +233,16 @@ function tokenizeStringWithInterpolation(
         i++;
       }
 
+      if (braceDepth > 0) {
+        tokenizerError("Unterminated interpolation expression", {
+          position: i,
+          line: currentLine,
+          column: exprStartCol,
+          suggestion: "Add a closing brace '}'",
+        });
+        throw new Error(`Unterminated interpolation expression at line ${currentLine}, col ${exprStartCol}`);
+      }
+
       tokens.push({
         type: "EXPR",
         value: expr.trim(),
@@ -258,6 +268,16 @@ function tokenizeStringWithInterpolation(
       currentCol++;
     }
     i++;
+  }
+
+  if (i >= input.length) {
+    tokenizerError("Unterminated string", {
+      position: i,
+      line: currentLine,
+      column: textStartCol,
+      suggestion: "Add a closing quote \""
+    });
+    throw new Error(`Unterminated string at line ${currentLine}, col ${textStartCol}`);
   }
 
   if (textBuffer) {

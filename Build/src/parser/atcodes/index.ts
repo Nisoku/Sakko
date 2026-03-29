@@ -1,11 +1,11 @@
-import type { AtcodeDeclaration } from "../types";
+import type { AtcodeDeclaration, ParserState } from "../types";
 import type { Token } from "../tokenizer";
 import { parseStateDeclaration } from "./state";
 import { parseEffectDeclaration } from "./effect";
 import { parseDerivedDeclaration } from "./derived";
 
 export function parseAtcodeDeclaration(
-  parser: any,
+  parser: ParserState,
   atToken: Token,
 ): AtcodeDeclaration {
   const nameToken = parser.peek();

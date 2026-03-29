@@ -1,16 +1,5 @@
-import type { AtcodeDeclaration } from "../types";
+import type { AtcodeDeclaration, ParserState } from "../types";
 import type { Token } from "../tokenizer";
-
-export interface ParserCore {
-  check: (type: string) => boolean;
-  consume: () => Token;
-  peek: () => Token | undefined;
-  errorAt: (msg: string, token?: Token) => Error;
-}
-
-export interface ParserState extends ParserCore {
-  parseExpression: () => string;
-}
 
 export function parseDerivedDeclaration(
   parser: ParserState,

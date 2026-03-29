@@ -13,6 +13,7 @@ import {
   compileInterpolation,
   nextElementId,
 } from "./atcode";
+import { toPascalCase } from "../utils";
 
 function formatCode(code: string): string {
   const lines = code.split("\n");
@@ -62,14 +63,17 @@ function hashString(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash;
   }
   return Math.abs(hash);
 }
 
-export function compileComponent(root: RootNode, options?: { id?: string }): string {
-  const componentId = options?.id 
+export function compileComponent(
+  root: RootNode,
+  options?: { id?: string },
+): string {
+  const componentId = options?.id
     ? `comp_${options.id}_${hashString(root.name)}`
     : `comp_${hashString(root.name)}`;
   const componentName = toPascalCase(root.name);
@@ -237,11 +241,4 @@ function compileElementNode(node: ElementNode, ctx: ComponentContext): string {
   lines.push(`root.appendChild(${elementVar});`);
 
   return lines.join("\n");
-}
-
-function toPascalCase(str: string): string {
-  return str
-    .split(/[-_]/)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join("");
 }

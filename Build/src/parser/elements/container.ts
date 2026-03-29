@@ -1,13 +1,8 @@
-import type { ElementNode, ListNode, ASTNode } from "../types";
-
-export interface ParserState {
-  check: (type: string) => boolean;
-  parseList: () => ListNode;
-  parseNode: () => ASTNode;
-}
+import type { ElementNode, ListNode, ASTNode, ParserState } from "../types";
 
 export function parseElementNode(
-  parser: ParserState,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _parser: ParserState,
   name: string,
   modifiers: Array<{ type: string; value?: string; key?: string }>,
   children: ASTNode[],

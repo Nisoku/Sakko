@@ -42,10 +42,5 @@ export function compile(code: string): { code: string; ast?: any } {
 }
 
 export function compileAtCode(code: string): { code: string } {
-  const trimmed = code.trim();
-  if (!trimmed.startsWith("<")) {
-    // Preserve newlines and indentation properly
-    return compile(`<wrapper {\n${trimmed}\n}>`);
-  }
   return compile(code);
 }

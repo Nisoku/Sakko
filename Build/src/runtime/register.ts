@@ -1,5 +1,6 @@
 import type { RootNode } from "../parser/parser";
 import { compileComponent } from "../compiler/component";
+import { toPascalCase } from "../utils";
 
 interface RegisteredComponent {
   name: string;
@@ -13,10 +14,16 @@ export function registerSakkoComponent(ast: RootNode): void {
   const componentCode = compileComponent(ast);
   const componentName = toPascalCase(ast.name);
 
-  const factory = new Function(`
-    ${componentCode}
+  // Transform ESM to simple CJS-like eval format
+  const evalCode = componentCode
+    .replace(/import\s+{([^}]+)}\s+from\s+['"]([^'"]+)['"];?/g, 'const {$1} = require(\'$2\');')
+    .replace(/export\s+function/g, 'function')
+    .replace(/export\s+const/g, 'const');
+
+  const factory = new Function('require', `
+    ${evalCode}
     return ${componentName};
-  `)() as () => HTMLElement;
+  `)(typeof require !== 'undefined' ? require : () => ({})) as () => HTMLElement;
 
   componentRegistry.set(ast.name, {
     name: ast.name,
@@ -55,11 +62,4 @@ export function getAllComponents(): Map<string, RegisteredComponent> {
 
 export function getComponentSource(name: string): string | undefined {
   return componentRegistry.get(name)?.source;
-}
-
-function toPascalCase(str: string): string {
-  return str
-    .split(/[-_]/)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join("");
 }

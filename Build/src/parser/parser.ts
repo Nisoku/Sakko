@@ -236,8 +236,12 @@ export class Parser {
       if (token?.type === "RBRACKET") bracketDepth--;
 
       if (token) {
-        if (expr && !expr.endsWith(" ") && !token.value.startsWith(" ")) {
-          expr += " ";
+        if (expr) {
+          const isWordEnd = /[a-zA-Z0-9_$]/.test(expr.slice(-1));
+          const isWordStart = /[a-zA-Z0-9_$]/.test(token.value[0]);
+          if (isWordEnd && isWordStart) {
+            expr += " ";
+          }
         }
         expr += token.value;
         this.consume();

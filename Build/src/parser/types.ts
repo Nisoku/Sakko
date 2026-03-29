@@ -61,3 +61,20 @@ export type ListNode = {
 };
 
 export type ASTNode = ElementNode | InlineNode | ListNode;
+
+import type { Token } from "./tokenizer";
+
+export interface ParserCore {
+  check: (type: string) => boolean;
+  consume: () => Token;
+  peek: () => Token | undefined;
+  errorAt: (msg: string, token?: Token) => Error;
+}
+
+export interface ParserState extends ParserCore {
+  expect: (type: string, errorMsg?: string) => Token;
+  parseBlockBody: () => string;
+  parseExpression: () => string;
+  parseList: () => ListNode;
+  parseNode: () => ASTNode;
+}

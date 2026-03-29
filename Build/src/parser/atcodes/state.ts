@@ -1,16 +1,5 @@
-import type { AtcodeDeclaration } from "../types";
+import type { AtcodeDeclaration, ParserState } from "../types";
 import type { Token } from "../tokenizer";
-
-export interface ParserCore {
-  check: (type: string) => boolean;
-  consume: () => Token;
-  peek: () => Token | undefined;
-  errorAt: (msg: string, token?: Token) => Error;
-}
-
-export interface ParserState extends ParserCore {
-  parseExpression: () => string;
-}
 
 export function parseStateDeclaration(
   parser: ParserState,
@@ -40,10 +29,7 @@ export function parseStateDeclaration(
     const varToken = parser.peek();
     if (!varToken || varToken.type !== "IDENT") {
       if (declarations.length === 0) {
-        throw parser.errorAt(
-          "Expected variable declaration",
-          varToken,
-        );
+        throw parser.errorAt("Expected variable declaration", varToken);
       }
       break;
     }

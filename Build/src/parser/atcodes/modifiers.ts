@@ -1,15 +1,17 @@
-import type { Modifier } from "../types";
+import type { Modifier, ParserState } from "../types";
 import type { Token } from "../tokenizer";
 
-export interface ParserCore {
-  check: (type: string) => boolean;
-  consume: () => Token;
-  errorAt: (msg: string, token?: Token) => Error;
-}
-
-export interface ParserState extends ParserCore {
-  expect: (type: string, errorMsg?: string) => Token;
-  parseBlockBody: () => string;
+function parseEventHandler(parser: ParserState, eventName: string, eventToken?: Token): string {
+  if (parser.check("LBRACE")) {
+    parser.consume();
+    const handler = parser.parseBlockBody();
+    parser.expect("RBRACE");
+    return handler;
+  }
+  throw parser.errorAt(
+    `Event handlers must use block syntax: @on:${eventName} { ... }`,
+    eventToken || parser.peek()
+  );
 }
 
 const EVENT_NAMES = new Set([
@@ -42,18 +44,7 @@ export function parseInlineModifier(parser: ParserState): Modifier {
     const eventToken = parser.expect("IDENT");
     const event = eventToken.value;
 
-    let handler = "";
-
-    if (parser.check("LBRACE")) {
-      parser.consume();
-      handler = parser.parseBlockBody();
-      parser.expect("RBRACE");
-    } else {
-      throw parser.errorAt(
-        "Event handlers must use block syntax: @on:click { ... }",
-        eventToken,
-      );
-    }
+    const handler = parseEventHandler(parser, event, eventToken);
 
     return {
       type: "event",
@@ -67,14 +58,10 @@ export function parseInlineModifier(parser: ParserState): Modifier {
     const event = name;
     let handler = "";
 
-    if (parser.check("LBRACE")) {
-      parser.consume();
-      handler = parser.parseBlockBody();
-      parser.expect("RBRACE");
-    } else if (parser.check("IDENT")) {
+    if (parser.check("IDENT")) {
       handler = parser.consume().value;
     } else {
-      handler = "() => {}";
+      handler = parseEventHandler(parser, event, nameToken);
     }
 
     return {
