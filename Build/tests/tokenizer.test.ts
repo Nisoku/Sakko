@@ -1,4 +1,5 @@
 import { tokenize } from "../src/parser/tokenizer";
+import { describe, test, expect } from "@jest/globals";
 
 describe("Tokenizer", () => {
   test("should tokenize basic elements", () => {
@@ -101,10 +102,11 @@ describe("Tokenizer", () => {
     expect(tokens[2].line).toBe(3);
   });
 
-  test("handles backslash in strings (no escape processing)", () => {
+  test("handles backslash escape sequences in strings", () => {
+    // \n should now be decoded to an actual newline character
     const tokens = tokenize('text: "hello\\nworld"');
     const str = tokens.find((t) => t.type === "STRING");
-    expect(str?.value).toBe("hello\\nworld");
+    expect(str?.value).toBe("hello\nworld");
   });
 
   test("handles empty strings", () => {

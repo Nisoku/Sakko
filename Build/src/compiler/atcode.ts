@@ -74,7 +74,7 @@ function addGetCallsToStateVars(code: string, ctx: ComponentContext): string {
 
     const escapedVarName = escapeRegExp(varName);
     const regex = new RegExp(
-      `(?<![A-Za-z0-9_$.])${escapedVarName}(?![A-Za-z0-9_$])(?!\\.get|\\.set|\\s*=|\\[)`,
+      `(?<![A-Za-z0-9_$.])${escapedVarName}(?![A-Za-z0-9_$])(?!\\.get|\\.set|\\s*=)`,
       "g",
     );
     result = result.replace(regex, `${varName}.get()`);
@@ -183,15 +183,37 @@ export function compileClassModifier(
 
   return `effect(() => {
     const classVal = ${exprWithGets};
+    const el = ${el};
+    const prevClasses = el.__sakko_reactive_classes || new Set();
+    const nextClasses = new Set();
+    
     if (typeof classVal === 'string') {
-      ${el}.className = classVal;
+      classVal.split(/\\s+/).filter(Boolean).forEach(c => nextClasses.add(c));
     } else if (typeof classVal === 'object' && classVal !== null) {
-      for (const [cls, active] of Object.entries(classVal)) {
-        if (active) ${el}.classList.add(cls);
-        else ${el}.classList.remove(cls);
+      if (Array.isArray(classVal)) {
+        classVal.filter(Boolean).forEach(c => nextClasses.add(c));
+      } else {
+        Object.entries(classVal).forEach(([c, active]) => {
+          if (active) nextClasses.add(c);
+        });
       }
     }
+    
+    prevClasses.forEach(c => {
+      if (!nextClasses.has(c)) el.classList.remove(c);
+    });
+    nextClasses.forEach(c => {
+      if (!prevClasses.has(c)) el.classList.add(c);
+    });
+    el.__sakko_reactive_classes = nextClasses;
   });`;
+}
+
+function escapeTemplateLiteral(str: string): string {
+  return str
+    .replace(/\\/g, () => "\\\\")      // Escape backslashes first
+    .replace(/`/g, () => "\\`")        // Escape backticks
+    .replace(/\$\{/g, () => "\\${");   // Escape ${ sequences
 }
 
 function escapeRegExp(str: string): string {
@@ -215,14 +237,14 @@ export function compileInterpolation(
 
   if (!hasReactiveExpr) {
     const str = parts
-      .map((p) => (p.type === "text" ? p.value : `\${${p.value}}`))
+      .map((p) => (p.type === "text" ? escapeTemplateLiteral(p.value) : `\${${p.value}}`))
       .join("");
     return { static: true, code: `\`${str}\`` };
   }
 
   const templateParts = parts
     .map((p) => {
-      if (p.type === "text") return p.value;
+      if (p.type === "text") return escapeTemplateLiteral(p.value);
 
       let expr = p.value;
       for (const varName of [...ctx.stateVars, ...ctx.derivedVars]) {

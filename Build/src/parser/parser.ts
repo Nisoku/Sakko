@@ -193,7 +193,7 @@ export class Parser {
       }
 
       if (token.type === "STRING") {
-        body += `"${token.value}"`;
+        body += JSON.stringify(token.value);
       } else {
         body += token.value;
       }
@@ -237,7 +237,7 @@ export class Parser {
           expr += " ";
         }
         if (token.type === "STRING") {
-          expr += `"${token.value}"`;
+          expr += JSON.stringify(token.value);
         } else {
           expr += token.value;
         }

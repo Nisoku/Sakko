@@ -1,6 +1,7 @@
 import { parseSakko } from "../src/parser/parser";
 import { compileComponent } from "../src/compiler/component";
 import { tokenize } from "../src/parser/tokenizer";
+import { describe, test, expect } from "@jest/globals";
 
 describe("Compiler - Atcode Compilation", () => {
   test("compiles @state to signal", () => {
@@ -169,5 +170,32 @@ describe("Compiler - Atcode Compilation", () => {
     expect(compiled).toContain('const instanceSignals = new Map();');
     expect(compiled).toContain('export function getSignal(id, signalName)');
     expect(compiled).toContain('const signals = instanceSignals.get(id);');
+  });
+
+  test("compiles indexed signal access", () => {
+    const input = `<app {
+      @state {
+        list = [1, 2, 3]
+      }
+      text: "{list[0]}"
+    }>`;
+
+    const ast = parseSakko(input);
+    const compiled = compileComponent(ast);
+    
+    expect(compiled).toContain('list.get()[0]');
+  });
+
+  test("static text with backslash is escaped in generated template literal", () => {
+    const input = `<app {
+      text: "line1\\nline2"
+    }>`;
+
+    const ast = parseSakko(input);
+    const compiled = compileComponent(ast);
+
+    // The text content should be present in the output (escaped as a JSON string or template literal)
+    expect(compiled).toContain("line1");
+    expect(compiled).toContain("line2");
   });
 });

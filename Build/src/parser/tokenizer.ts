@@ -129,6 +129,21 @@ export function tokenize(input: string): Token[] {
 
       let str = "";
       while (i < input.length && input[i] !== '"') {
+        // Handle escape sequences
+        if (input[i] === "\\" && i + 1 < input.length) {
+          i++; col++;
+          const esc = input[i];
+          if (esc === 'n') str += '\n';
+          else if (esc === 't') str += '\t';
+          else if (esc === '"') str += '"';
+          else if (esc === "'") str += "'";
+          else if (esc === '`') str += '`';
+          else if (esc === '\\') str += '\\';
+          else if (esc === '$') str += '$';
+          else str += '\\' + esc; // preserve unknown escapes as-is
+          i++; col++;
+          continue;
+        }
         if (input[i] === "\n") {
           line++;
           col = 1;
@@ -257,6 +272,23 @@ function tokenizeStringWithInterpolation(
       });
 
       textStartCol = currentCol;
+      continue;
+    }
+
+    // Handle escape sequences inside interpolated strings
+    if (input[i] === "\\" && i + 1 < input.length) {
+      i++; currentCol++;
+      const esc = input[i];
+      if (esc === 'n') textBuffer += '\n';
+      else if (esc === 't') textBuffer += '\t';
+      else if (esc === '"') textBuffer += '"';
+      else if (esc === "'") textBuffer += "'";
+      else if (esc === '`') textBuffer += '`';
+      else if (esc === '\\') textBuffer += '\\';
+      else if (esc === '$') textBuffer += '$';
+      else textBuffer += '\\' + esc;
+      currentCol++;
+      i++;
       continue;
     }
 

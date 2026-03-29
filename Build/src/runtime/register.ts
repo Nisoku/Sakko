@@ -29,7 +29,7 @@ export function registerSakkoComponent(ast: RootNode): void {
   const fallbackRequire = (pkg: string) => {
     if (pkg === "@nisoku/sairin") return sairin;
     if (typeof require !== "undefined") return require(pkg);
-    return {};
+    throw new Error(`fallbackRequire: Cannot resolve module "${pkg}". standard 'require' is not available in this environment.`);
   };
 
   const factory = new Function("require", `
