@@ -43,6 +43,7 @@
     "vite-plugin-dts": "^4.5.4"
   },
   "dependencies": {
+    "@nisoku/sairin": "^0.1.0",
     "@nisoku/satori": "^0.1.3"
   }
 }

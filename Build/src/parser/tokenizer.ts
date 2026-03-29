@@ -110,7 +110,7 @@ export function tokenize(input: string): Token[] {
       col++;
 
       const remaining = input.slice(i);
-      const hasInterpolation = /\{[a-zA-Z_$]/.test(remaining);
+      const hasInterpolation = /\{[\s\S]*?\}/.test(remaining);
 
       if (hasInterpolation) {
         const result = tokenizeStringWithInterpolation(
@@ -280,7 +280,7 @@ function tokenizeStringWithInterpolation(
     throw new Error(`Unterminated string at line ${currentLine}, col ${textStartCol}`);
   }
 
-  if (textBuffer) {
+  if (textBuffer || tokens.length === 0) {
     tokens.push({
       type: "STRING",
       value: textBuffer,

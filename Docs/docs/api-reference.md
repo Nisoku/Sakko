@@ -174,7 +174,7 @@ registerSakkoComponent(ast);
 // Now <sakko-my-counter> is available as a web component
 ```
 
-### `getComponent(name: string): RegisteredComponent`
+### `getComponent(name: string): RegisteredComponent | undefined`
 
 Get a registered component.
 
@@ -182,5 +182,7 @@ Get a registered component.
 import { getComponent } from '@nisoku/sakko';
 
 const comp = getComponent('my-counter');
-console.log(comp.source); // The compiled JS source
+if (comp) {
+  console.log(comp.source); // The compiled JS source
+}
 ```

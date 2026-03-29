@@ -68,6 +68,7 @@ export interface ParserCore {
   check: (type: string) => boolean;
   consume: () => Token;
   peek: () => Token | undefined;
+  peekAheadIs: (type: string) => boolean;
   errorAt: (msg: string, token?: Token) => Error;
 }
 

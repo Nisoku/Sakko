@@ -143,9 +143,10 @@ describe("Tokenizer", () => {
     expect(str?.value).toBe("key: value");
   });
 
-  test("handles string with braces inside", () => {
+  test("tokenizes interpolation inside strings", () => {
     const tokens = tokenize('text: "{ hello }"');
-    const str = tokens.find((t) => t.type === "STRING");
-    expect(str?.value).toBe("{ hello }");
+    expect(tokens.find((t) => t.type === "INTERP_START")).toBeTruthy();
+    expect(tokens.find((t) => t.type === "EXPR")?.value).toBe("hello");
+    expect(tokens.find((t) => t.type === "INTERP_END")).toBeTruthy();
   });
 });

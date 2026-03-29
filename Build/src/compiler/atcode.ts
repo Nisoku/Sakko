@@ -29,7 +29,7 @@ export function compileStateDeclarations(
         ctx.stateVars.add(name);
 
         lines.push(
-          `const ${name} = signal(path("component", "${ctx.componentId}", "${name}"), ${value});`,
+          `const ${name} = signal(path("component", id, "${name}"), ${value});`,
         );
       }
     }
@@ -38,8 +38,9 @@ export function compileStateDeclarations(
       for (const { name, expr } of decl.declarations) {
         ctx.derivedVars.add(name);
 
+        const transformedExpr = addGetCallsToStateVars(expr, ctx);
         lines.push(
-          `const ${name} = derived(path("component", "${ctx.componentId}", "${name}"), () => ${expr});`,
+          `const ${name} = derived(path("component", id, "${name}"), () => ${transformedExpr});`,
         );
       }
     }
@@ -69,9 +70,11 @@ function addGetCallsToStateVars(code: string, ctx: ComponentContext): string {
   let result = code;
 
   for (const varName of [...ctx.stateVars, ...ctx.derivedVars]) {
+    if (!/^[A-Za-z_]\w*$/.test(varName)) continue;
+
     const escapedVarName = escapeRegExp(varName);
     const regex = new RegExp(
-      `\\b${escapedVarName}\\b(?!\\.get|\\.set|\\s*=|\\[)`,
+      `(?<![A-Za-z0-9_$])${escapedVarName}(?![A-Za-z0-9_$])(?!\\.get|\\.set|\\s*=|\\[)`,
       "g",
     );
     result = result.replace(regex, `${varName}.get()`);
@@ -89,29 +92,28 @@ export function compileEventHandler(
   const compiledHandler = compileHandlerBody(handler, ctx);
   const el = elementVar || "element";
 
-  return `bindEvent(${el}, "${event}", () => {
-  ${compiledHandler}
-});`;
+  return `bindEvent(${el}, "${event}", (e) => {\n  ${compiledHandler}\n});`;
 }
 
 function compileHandlerBody(code: string, ctx: ComponentContext): string {
   let result = code;
 
   for (const varName of ctx.stateVars) {
+    if (!/^[A-Za-z_]\w*$/.test(varName)) continue;
     const escapedVarName = escapeRegExp(varName);
 
     result = result.replace(
-      new RegExp(`${escapedVarName}\\+\\+`, "g"),
+      new RegExp(`(?<![A-Za-z0-9_$])${escapedVarName}(?![A-Za-z0-9_$])\\+\\+`, "g"),
       `${varName}.set(${varName}.get() + 1)`,
     );
 
     result = result.replace(
-      new RegExp(`${escapedVarName}--`, "g"),
+      new RegExp(`(?<![A-Za-z0-9_$])${escapedVarName}(?![A-Za-z0-9_$])--`, "g"),
       `${varName}.set(${varName}.get() - 1)`,
     );
 
     result = result.replace(
-      new RegExp(`${escapedVarName}\\+=\\s*([^;]+)`, "g"),
+      new RegExp(`(?<![A-Za-z0-9_$])${escapedVarName}(?![A-Za-z0-9_$])\\s*\\+=\\s*([^;]+)`, "g"),
       (match, expr) => {
         const cleanExpr = expr.trim();
         const exprWithGet = addGetCallsToStateVars(cleanExpr, ctx);
@@ -120,7 +122,7 @@ function compileHandlerBody(code: string, ctx: ComponentContext): string {
     );
 
     result = result.replace(
-      new RegExp(`${escapedVarName}-=\\s*([^;]+)`, "g"),
+      new RegExp(`(?<![A-Za-z0-9_$])${escapedVarName}(?![A-Za-z0-9_$])\\s*-=\\s*([^;]+)`, "g"),
       (match, expr) => {
         const cleanExpr = expr.trim();
         const exprWithGet = addGetCallsToStateVars(cleanExpr, ctx);
@@ -129,7 +131,7 @@ function compileHandlerBody(code: string, ctx: ComponentContext): string {
     );
 
     result = result.replace(
-      new RegExp(`${escapedVarName}=\\s*([^;]+)`, "g"),
+      new RegExp(`(?<![A-Za-z0-9_$])${escapedVarName}(?![A-Za-z0-9_$])\\s*=(?![=>])\\s*([^;]+)`, "g"),
       (match, expr) => {
         const cleanExpr = expr.trim();
         const exprWithGet = addGetCallsToStateVars(cleanExpr, ctx);
@@ -138,7 +140,7 @@ function compileHandlerBody(code: string, ctx: ComponentContext): string {
     );
   }
 
-  return result;
+  return addGetCallsToStateVars(result, ctx);
 }
 
 export interface BindResult {
@@ -155,25 +157,9 @@ export function compileBindModifier(
 ): BindResult {
   const el = elementVar || "element";
 
-  if (elementType === "input" || elementType === "saz-input") {
-    return {
-      code: `${el}.value = ${signalName};`,
-      signalName,
-      bindingType: "two-way",
-    };
-  }
-
-  if (elementType === "checkbox" || elementType === "saz-checkbox") {
+  if (elementType === "checkbox" || elementType === "sakko-checkbox") {
     return {
       code: `bindInputChecked(${el}, ${signalName});`,
-      signalName,
-      bindingType: "two-way",
-    };
-  }
-
-  if (elementType === "select" || elementType === "saz-select") {
-    return {
-      code: `${el}.value = ${signalName};`,
       signalName,
       bindingType: "two-way",
     };
@@ -184,6 +170,18 @@ export function compileBindModifier(
     signalName,
     bindingType: "two-way",
   };
+}
+
+export function compileClassModifier(
+  expr: string,
+  elementType: string,
+  ctx: ComponentContext,
+  elementVar?: string,
+): string {
+  const el = elementVar || "element";
+  const exprWithGets = addGetCallsToStateVars(expr, ctx);
+
+  return `effect(() => {\n  const classVal = ${exprWithGets};\n  if (typeof classVal === 'string') {\n    ${el}.className = classVal;\n  } else if (typeof classVal === 'object' && classVal !== null) {\n    for (const [cls, active] of Object.entries(classVal)) {\n      if (active) ${el}.classList.add(cls);\n      else ${el}.classList.remove(cls);\n    }\n  }\n});`;
 }
 
 function escapeRegExp(str: string): string {
@@ -218,8 +216,10 @@ export function compileInterpolation(
 
       let expr = p.value;
       for (const varName of [...ctx.stateVars, ...ctx.derivedVars]) {
+        if (!/^[A-Za-z_]\w*$/.test(varName)) continue;
+        const escapedVarName = escapeRegExp(varName);
         expr = expr.replace(
-          new RegExp(`\\b${varName}\\b`, "g"),
+          new RegExp(`(?<![A-Za-z0-9_$])${escapedVarName}(?![A-Za-z0-9_$])`, "g"),
           `${varName}.get()`,
         );
       }

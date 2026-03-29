@@ -31,9 +31,10 @@ describe('Tokenizer - Error handling', () => {
     expect(tokens[2]).toMatchObject({ type: 'STRING', value: '   ' });
   });
 
-  test('should handle string with bracket characters inside', () => {
+  test('should handle string with bracket characters inside as interpolation', () => {
     const tokens = tokenize('text: "{[(<>)]}"');
-    expect(tokens[2]).toMatchObject({ type: 'STRING', value: '{[(<>)]}' });
+    expect(tokens[2]).toMatchObject({ type: 'INTERP_START', value: '{' });
+    expect(tokens[3]).toMatchObject({ type: 'EXPR', value: '[(<>)]' });
   });
 
   test('should handle single-character identifiers', () => {

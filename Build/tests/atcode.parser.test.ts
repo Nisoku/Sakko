@@ -155,7 +155,7 @@ describe("Parser - Atcode Declarations", () => {
       }
     }>`;
 
-    expect(() => parseSakko(input)).toThrow("Expected identifier");
+    expect(() => parseSakko(input)).toThrow("Unknown atcode '@unknown'");
   });
 
   test("throws on @on without block", () => {

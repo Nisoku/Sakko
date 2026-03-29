@@ -34,19 +34,19 @@ export function parseStateDeclaration(
       break;
     }
 
+    if (!parser.peekAheadIs("EQUALS")) {
+      break;
+    }
+
     parser.consume();
     const varName = varToken.value;
 
-    if (parser.check("EQUALS")) {
-      parser.consume();
-      const valueExpr = parser.parseExpression();
-      declarations.push({ name: varName, value: valueExpr });
+    parser.expect("EQUALS");
+    const valueExpr = parser.parseExpression();
+    declarations.push({ name: varName, value: valueExpr });
 
-      if (parser.check("SEMI") || parser.check("COMMA")) {
-        parser.consume();
-      }
-    } else {
-      break;
+    if (parser.check("SEMI") || parser.check("COMMA")) {
+      parser.consume();
     }
   }
 

@@ -150,29 +150,15 @@ export class Parser {
       }
 
       if (this.check("AT")) {
-        const atPosition = this.position;
-        this.consume();
-        const nextToken = this.peek();
-
-        if (
-          nextToken?.type === "IDENT" &&
-          (nextToken.value === "state" ||
-            nextToken.value === "effect" ||
-            nextToken.value === "derived")
-        ) {
-          this.position = atPosition;
-          const atToken = this.consume();
-          declarations.push(parseAtcodeDeclaration(this, atToken));
-        } else {
-          this.position = atPosition;
-          const node = this.parseNode();
-          children.push(node);
-        }
+        const atToken = this.consume();
+        declarations.push(parseAtcodeDeclaration(this, atToken));
       } else {
         children.push(this.parseNode());
       }
-      if (this.check("SEMI")) this.consume();
-      if (this.check("COMMA")) this.consume();
+
+      if (this.check("SEMI") || this.check("COMMA")) {
+        this.consume();
+      }
     }
 
     this.expect("RBRACE", "Expected '}'");
@@ -181,26 +167,37 @@ export class Parser {
     return { type: "root", name, modifiers, declarations, children };
   }
 
+  private _shouldInsertSpace(current: string, next: Token): boolean {
+    if (!current) return false;
+    const lastChar = current.slice(-1);
+    const nextChar = next.value[0];
+    const isWordEnd = /[a-zA-Z0-9_$]/.test(lastChar);
+    const isWordStart = /[a-zA-Z0-9_$]/.test(nextChar);
+    return isWordEnd && isWordStart;
+  }
+
   parseBlockBody(): string {
     let body = "";
     let braceDepth = 0;
 
-    while (this.peek() && (braceDepth > 0 || !this.check("RBRACE"))) {
-      const token = this.peek();
+    while (this.peek()) {
+      const token = this.peek()!;
 
-      if (token?.type === "LBRACE") braceDepth++;
-      if (token?.type === "RBRACE" && braceDepth > 0) braceDepth--;
+      if (token.type === "RBRACE" && braceDepth === 0) break;
 
-      if (braceDepth === 0 && token?.type === "RBRACE") break;
+      if (token.type === "LBRACE") braceDepth++;
+      if (token.type === "RBRACE") braceDepth--;
 
-      if (token) {
-        if (token.type === "STRING") {
-          body += `"${token.value}"`;
-        } else {
-          body += token.value;
-        }
-        this.consume();
+      if (this._shouldInsertSpace(body, token)) {
+        body += " ";
       }
+
+      if (token.type === "STRING") {
+        body += `"${token.value}"`;
+      } else {
+        body += token.value;
+      }
+      this.consume();
     }
 
     return body.trim();
@@ -236,14 +233,14 @@ export class Parser {
       if (token?.type === "RBRACKET") bracketDepth--;
 
       if (token) {
-        if (expr) {
-          const isWordEnd = /[a-zA-Z0-9_$]/.test(expr.slice(-1));
-          const isWordStart = /[a-zA-Z0-9_$]/.test(token.value[0]);
-          if (isWordEnd && isWordStart) {
-            expr += " ";
-          }
+        if (this._shouldInsertSpace(expr, token)) {
+          expr += " ";
         }
-        expr += token.value;
+        if (token.type === "STRING") {
+          expr += `"${token.value}"`;
+        } else {
+          expr += token.value;
+        }
         this.consume();
       }
     }
@@ -337,7 +334,7 @@ export class Parser {
   }
 
   parseModifiers(): Modifier[] {
-    this.consume();
+    this.consume(); // consume (
     const modifiers: Modifier[] = [];
 
     while (!this.check("RPAREN")) {

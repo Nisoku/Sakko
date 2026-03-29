@@ -1,5 +1,6 @@
 import { parseSakko } from "../src/parser/parser";
 import { compileComponent } from "../src/compiler/component";
+import { tokenize } from "../src/parser/tokenizer";
 
 describe("Compiler - Atcode Compilation", () => {
   test("compiles @state to signal", () => {
@@ -55,7 +56,7 @@ describe("Compiler - Atcode Compilation", () => {
     const compiled = compileComponent(ast);
     
     expect(compiled).toContain('derived(path("component"');
-    expect(compiled).toContain('items.length');
+    expect(compiled).toContain('items.get().length');
   });
 
   test("compiles @on:click to addEventListener", () => {
@@ -102,7 +103,7 @@ describe("Compiler - Atcode Compilation", () => {
     const ast = parseSakko(input);
     const compiled = compileComponent(ast);
     
-    expect(compiled).toContain('input0.value = username');
+    expect(compiled).toContain('bindInputValue(input0, username);');
   });
 
   test("compiles interpolation to effect", () => {
@@ -117,8 +118,8 @@ describe("Compiler - Atcode Compilation", () => {
     const ast = parseSakko(input);
     const compiled = compileComponent(ast);
     
-    expect(compiled).toContain('effect(() => {');
-    expect(compiled).toContain('textContent =');
+    expect(compiled).toContain("document.createElement('sakko-text');");
+    expect(compiled).toContain(".textContent =");
     expect(compiled).toContain('count.get()');
   });
 
@@ -150,7 +151,6 @@ describe("Compiler - Atcode Compilation", () => {
     const compiled = compileComponent(ast);
     
     expect(compiled).toContain('export function getSignal');
-    expect(compiled).toContain('case "count"');
-    expect(compiled).toContain('case "step"');
+    expect(compiled).toContain('return signals[signalName]');
   });
 });

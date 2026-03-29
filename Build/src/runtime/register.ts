@@ -1,6 +1,7 @@
 import type { RootNode } from "../parser/parser";
 import { compileComponent } from "../compiler/component";
 import { toPascalCase } from "../utils";
+import * as sairin from "@nisoku/sairin";
 
 interface RegisteredComponent {
   name: string;
@@ -20,10 +21,16 @@ export function registerSakkoComponent(ast: RootNode): void {
     .replace(/export\s+function/g, 'function')
     .replace(/export\s+const/g, 'const');
 
-  const factory = new Function('require', `
+  const fallbackRequire = (pkg: string) => {
+    if (pkg === "@nisoku/sairin") return sairin;
+    if (typeof require !== "undefined") return require(pkg);
+    return {};
+  };
+
+  const factory = new Function("require", `
     ${evalCode}
     return ${componentName};
-  `)(typeof require !== 'undefined' ? require : () => ({})) as () => HTMLElement;
+  `)(fallbackRequire) as (id?: string) => HTMLElement;
 
   componentRegistry.set(ast.name, {
     name: ast.name,
@@ -42,9 +49,13 @@ export function registerSakkoComponent(ast: RootNode): void {
             this.attachShadow({ mode: "open" });
           }
 
+          private _rendered = false;
+
           connectedCallback() {
+            if (this._rendered) return;
             const component = factory();
             this.shadowRoot!.appendChild(component);
+            this._rendered = true;
           }
         },
       );

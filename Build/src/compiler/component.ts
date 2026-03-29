@@ -10,6 +10,7 @@ import {
   compileEffectDeclarations,
   compileEventHandler,
   compileBindModifier,
+  compileClassModifier,
   compileInterpolation,
   nextElementId,
 } from "./atcode";
@@ -87,17 +88,25 @@ export function compileComponent(
   };
 
   const imports = `import { signal, effect, derived, path } from '@nisoku/sairin';
-import { bindEvent } from '@nisoku/sairin';`;
+import { bind, bindEvent, bindInputValue, bindInputChecked } from '@nisoku/sairin';`;
 
   const stateCode = compileStateDeclarations(root.declarations, ctx);
   const effectCode = compileEffectDeclarations(root.declarations, ctx);
 
   const renderCode = compileChildren(root.children, ctx);
 
-  const componentFn = `export function ${componentName}(id = "${componentId}") {
+  const signalPopulations = [...ctx.stateVars, ...ctx.derivedVars]
+    .map((v) => `  signals["${v}"] = ${v};`)
+    .join("\n");
+
+  const componentFn = `const signals = {};
+
+export function ${componentName}(id = "${componentId}") {
 ${stateCode}
 
 ${effectCode}
+
+${signalPopulations}
 
 const root = document.createElement('div');
 root.className = '${root.name}';
@@ -107,34 +116,27 @@ ${renderCode}
 return root;
 }`;
 
-  const signalCases = [...ctx.stateVars, ...ctx.derivedVars]
-    .map((v) => `    case "${v}": return ${v};`)
-    .join("\n");
-
   const getSignalFn = `export function getSignal(signalName) {
-  switch (signalName) {
-${signalCases}
-    default: return null;
-  }
+  return signals[signalName] || null;
 }`;
 
   return formatCode([imports, "", componentFn, "", getSignalFn].join("\n\n"));
 }
 
-function compileChildren(children: ASTNode[], ctx: ComponentContext): string {
+function compileChildren(children: ASTNode[], ctx: ComponentContext, parentVar: string = "root"): string {
   const lines: string[] = [];
 
   for (const child of children) {
     if (child.type === "inline") {
-      lines.push(compileInlineNode(child, ctx));
+      lines.push(compileInlineNode(child, ctx, parentVar));
     } else if (child.type === "element") {
-      lines.push(compileElementNode(child, ctx));
+      lines.push(compileElementNode(child, ctx, parentVar));
     } else if (child.type === "list") {
       for (const item of child.items) {
         if (item.type === "inline") {
-          lines.push(compileInlineNode(item, ctx));
+          lines.push(compileInlineNode(item, ctx, parentVar));
         } else if (item.type === "element") {
-          lines.push(compileElementNode(item, ctx));
+          lines.push(compileElementNode(item, ctx, parentVar));
         }
       }
     }
@@ -143,21 +145,21 @@ function compileChildren(children: ASTNode[], ctx: ComponentContext): string {
   return lines.join("\n\n");
 }
 
-function compileInlineNode(node: InlineNode, ctx: ComponentContext): string {
+function compileInlineNode(node: InlineNode, ctx: ComponentContext, parentVar: string): string {
   const idx = nextElementId(ctx);
   const elementVar = `${node.name}${idx}`;
 
   const lines: string[] = [];
   lines.push(`// ${node.name}`);
   lines.push(
-    `const ${elementVar} = document.createElement('saz-${node.name}');`,
+    `const ${elementVar} = document.createElement('sakko-${node.name}');`,
   );
 
   for (const mod of node.modifiers) {
     if (mod.type === "flag") {
-      lines.push(`${elementVar}.setAttribute('${mod.value}', '');`);
+      lines.push(`${elementVar}.setAttribute(${JSON.stringify(mod.value)}, '');`);
     } else if (mod.type === "pair") {
-      lines.push(`${elementVar}.setAttribute('${mod.key}', '${mod.value}');`);
+      lines.push(`${elementVar}.setAttribute(${JSON.stringify(mod.key)}, ${JSON.stringify(mod.value)});`);
     } else if (mod.type === "event") {
       const handlerCode = compileEventHandler(mod, ctx, elementVar);
       lines.push(handlerCode);
@@ -168,11 +170,15 @@ function compileInlineNode(node: InlineNode, ctx: ComponentContext): string {
         ctx,
         elementVar,
       );
-      if (bindResult.bindingType === "two-way" && node.name === "input") {
-        lines.push(`${elementVar}.value = ${bindResult.signalName};`);
-      } else {
-        lines.push(bindResult.code);
-      }
+      lines.push(bindResult.code);
+    } else if (mod.type === "atcode" && mod.name === "class") {
+      const classCode = compileClassModifier(
+        mod.body,
+        node.name,
+        ctx,
+        elementVar,
+      );
+      lines.push(classCode);
     }
   }
 
@@ -195,26 +201,26 @@ function compileInlineNode(node: InlineNode, ctx: ComponentContext): string {
     }
   }
 
-  lines.push(`root.appendChild(${elementVar});`);
+  lines.push(`${parentVar}.appendChild(${elementVar});`);
 
   return lines.join("\n");
 }
 
-function compileElementNode(node: ElementNode, ctx: ComponentContext): string {
+function compileElementNode(node: ElementNode, ctx: ComponentContext, parentVar: string): string {
   const idx = nextElementId(ctx);
   const elementVar = `${node.name}${idx}`;
 
   const lines: string[] = [];
   lines.push(`// ${node.name} container`);
   lines.push(
-    `const ${elementVar} = document.createElement('saz-${node.name}');`,
+    `const ${elementVar} = document.createElement('sakko-${node.name}');`,
   );
 
   for (const mod of node.modifiers) {
     if (mod.type === "flag") {
-      lines.push(`${elementVar}.setAttribute('${mod.value}', '');`);
+      lines.push(`${elementVar}.setAttribute(${JSON.stringify(mod.value)}, '');`);
     } else if (mod.type === "pair") {
-      lines.push(`${elementVar}.setAttribute('${mod.key}', '${mod.value}');`);
+      lines.push(`${elementVar}.setAttribute(${JSON.stringify(mod.key)}, ${JSON.stringify(mod.value)});`);
     } else if (mod.type === "event") {
       const handlerCode = compileEventHandler(mod, ctx, elementVar);
       lines.push(handlerCode);
@@ -225,20 +231,24 @@ function compileElementNode(node: ElementNode, ctx: ComponentContext): string {
         ctx,
         elementVar,
       );
-      if (bindResult.bindingType === "two-way" && node.name === "input") {
-        lines.push(`${elementVar}.value = ${bindResult.signalName};`);
-      } else {
-        lines.push(bindResult.code);
-      }
+      lines.push(bindResult.code);
+    } else if (mod.type === "atcode" && mod.name === "class") {
+      const classCode = compileClassModifier(
+        mod.body,
+        node.name,
+        ctx,
+        elementVar,
+      );
+      lines.push(classCode);
     }
   }
 
   if (node.children.length > 0) {
-    const childCode = compileChildren(node.children, ctx);
+    const childCode = compileChildren(node.children, ctx, elementVar);
     lines.push(childCode);
   }
 
-  lines.push(`root.appendChild(${elementVar});`);
+  lines.push(`${parentVar}.appendChild(${elementVar});`);
 
   return lines.join("\n");
 }
