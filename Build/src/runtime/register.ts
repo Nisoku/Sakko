@@ -60,12 +60,17 @@ async function createFactoryFromCode(
     }
   } else {
     const strippedCode = stripExports(evalCode);
+    const safeRequire = typeof require !== "undefined" ? require : (pkg: string) => {
+      throw new Error(`require is not available. Module '${pkg}' could not be resolved.`);
+    };
     const result = new Function('require', `
       const module = { exports: {} };
       const exports = module.exports;
       ${strippedCode}
+      module.exports.${componentName} = ${componentName};
+      module.exports.dispose = dispose;
       return { factory: module.exports.${componentName}, dispose: module.exports.dispose };
-    `)(require);
+    `)(safeRequire);
     return result as { factory: (id?: string) => HTMLElement; dispose: (id: string) => void };
   }
 }
