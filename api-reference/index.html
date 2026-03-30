@@ -292,31 +292,91 @@
 </code></pre>
 <hr>
 <h2 id="compiler">Compiler</h2>
-<h3 id="compilecomponentroot-rootnode-string"><code>compileComponent(root: RootNode): string</code></h3>
+<h3 id="compilecomponentroot-rootnode-options-compileoptions-string"><code>compileComponent(root: RootNode, options?: CompileOptions): string</code></h3>
 <p>Compile a Sakko AST to JavaScript with Sairin signals.</p>
 <pre class="hljs"><code><span class="hljs-keyword">import</span> { parseSakko, compileComponent } <span class="hljs-keyword">from</span> <span class="hljs-string">&#x27;@nisoku/sakko&#x27;</span>;
 
 <span class="hljs-keyword">const</span> ast = <span class="hljs-title function_">parseSakko</span>(<span class="hljs-string">&#x27;&lt;counter { @state { count = 0 } }&gt;&#x27;</span>);
 <span class="hljs-keyword">const</span> js = <span class="hljs-title function_">compileComponent</span>(ast);
-<span class="hljs-comment">// Returns: import { signal } from &#x27;@nisoku/sairin&#x27;; ...</span>
+<span class="hljs-comment">// Returns: const { signal } = sairin; ... (global mode by default)</span>
 </code></pre>
+<h4 id="compileoptions">CompileOptions</h4>
+<div class="table-wrapper"><table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td><code>string</code></td>
+<td>auto-generated</td>
+<td>Custom component ID</td>
+</tr>
+<tr>
+<td><code>sairinImport</code></td>
+<td><code>'global' | 'esm' | 'cjs'</code></td>
+<td><code>'global'</code></td>
+<td>How to import Sairin</td>
+</tr>
+<tr>
+<td><code>sairinGlobal</code></td>
+<td><code>string</code></td>
+<td><code>'sairin'</code></td>
+<td>Global name for <code>global</code> mode</td>
+</tr>
+<tr>
+<td><code>sairinModule</code></td>
+<td><code>string</code></td>
+<td><code>'sairin'</code></td>
+<td>Module path for <code>esm</code>/<code>cjs</code> modes</td>
+</tr>
+</tbody>
+</table>
+</div><p><strong>Sairin Import Modes:</strong></p>
+<ul>
+<li><code>'global'</code>: References <code>window.sairin</code> (requires <code>&lt;script src=&quot;sairin.js&quot;&gt;</code>)</li>
+<li><code>'esm'</code>: Generates <code>import { signal } from 'sairin'</code> (use with bundler)</li>
+<li><code>'cjs'</code>: Generates <code>const { signal } = require('sairin')</code> (Node.js only)</li>
+</ul>
 <hr>
 <h2 id="runtime">Runtime</h2>
-<h3 id="registersakkocomponentast-rootnode-void"><code>registerSakkoComponent(ast: RootNode): void</code></h3>
-<p>Register a component as a custom element.</p>
+<h3 id="registersakkocomponentast-rootnode-options-registeroptions-promisevoid"><code>registerSakkoComponent(ast: RootNode, options?: RegisterOptions): Promise&lt;void&gt;</code></h3>
+<p>Register a component as a custom element. <strong>Async</strong> in browser environments.</p>
 <pre class="hljs"><code><span class="hljs-keyword">import</span> { parseSakko, registerSakkoComponent } <span class="hljs-keyword">from</span> <span class="hljs-string">&#x27;@nisoku/sakko&#x27;</span>;
 
 <span class="hljs-keyword">const</span> ast = <span class="hljs-title function_">parseSakko</span>(<span class="hljs-string">&#x27;&lt;my-counter { @state { count = 0 } }&gt;&#x27;</span>);
-<span class="hljs-title function_">registerSakkoComponent</span>(ast);
+<span class="hljs-keyword">await</span> <span class="hljs-title function_">registerSakkoComponent</span>(ast);
 <span class="hljs-comment">// Now &lt;sakko-my-counter&gt; is available as a web component</span>
 </code></pre>
-<h3 id="getcomponentname-string-registeredcomponent-undefined"><code>getComponent(name: string): RegisteredComponent | undefined</code></h3>
-<p>Get a registered component.</p>
+<h4 id="registeroptions">RegisterOptions</h4>
+<p>Same as <code>CompileOptions</code>: <code>sairinImport</code>, <code>sairinGlobal</code>, <code>sairinModule</code>.</p>
+<p><strong>Note:</strong> In browsers, only <code>'global'</code> mode is supported. For <code>'esm'</code> or <code>'cjs'</code>, call <code>compileComponent</code> separately and use a bundler.</p>
+<h3 id="getcomponentname-string-readonlyregisteredcomponent-undefined"><code>getComponent(name: string): Readonly&lt;RegisteredComponent&gt; | undefined</code></h3>
+<p>Get a registered component by name (case-insensitive).</p>
 <pre class="hljs"><code><span class="hljs-keyword">import</span> { getComponent } <span class="hljs-keyword">from</span> <span class="hljs-string">&#x27;@nisoku/sakko&#x27;</span>;
 
 <span class="hljs-keyword">const</span> comp = <span class="hljs-title function_">getComponent</span>(<span class="hljs-string">&#x27;my-counter&#x27;</span>);
 <span class="hljs-keyword">if</span> (comp) {
   <span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(comp.<span class="hljs-property">source</span>); <span class="hljs-comment">// The compiled JS source</span>
+  <span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(comp.<span class="hljs-property">factory</span>); <span class="hljs-comment">// The factory function</span>
+  <span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(comp.<span class="hljs-property">dispose</span>); <span class="hljs-comment">// Cleanup function for instances</span>
+}
+</code></pre>
+<h3 id="getallcomponents-readonlymapstring-readonlyregisteredcomponent"><code>getAllComponents(): ReadonlyMap&lt;string, Readonly&lt;RegisteredComponent&gt;&gt;</code></h3>
+<p>Get all registered components.</p>
+<h3 id="getcomponentsourcename-string-string-undefined"><code>getComponentSource(name: string): string | undefined</code></h3>
+<p>Get the compiled source for a component by name.</p>
+<h3 id="registeredcomponent">RegisteredComponent</h3>
+<pre class="hljs"><code><span class="hljs-keyword">interface</span> <span class="hljs-title class_">RegisteredComponent</span> {
+  <span class="hljs-keyword">readonly</span> <span class="hljs-attr">name</span>: <span class="hljs-built_in">string</span>;              <span class="hljs-comment">// Component name (lowercase)</span>
+  <span class="hljs-keyword">readonly</span> <span class="hljs-attr">factory</span>: <span class="hljs-function">(<span class="hljs-params"><span class="hljs-attr">id</span>?: <span class="hljs-built_in">string</span></span>) =&gt;</span> <span class="hljs-title class_">HTMLElement</span>;  <span class="hljs-comment">// Instance factory</span>
+  <span class="hljs-keyword">readonly</span> <span class="hljs-attr">dispose</span>: <span class="hljs-function">(<span class="hljs-params"><span class="hljs-attr">id</span>: <span class="hljs-built_in">string</span></span>) =&gt;</span> <span class="hljs-built_in">void</span>;  <span class="hljs-comment">// Cleanup function</span>
+  <span class="hljs-keyword">readonly</span> <span class="hljs-attr">source</span>: <span class="hljs-built_in">string</span>;            <span class="hljs-comment">// Compiled JS source</span>
 }
 </code></pre>
 
@@ -389,7 +449,11 @@
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#compilecomponentroot-rootnode-string" class="toc-link">compileComponent(root: RootNode): string</a>
+          <a href="#compilecomponentroot-rootnode-options-compileoptions-string" class="toc-link">compileComponent(root: RootNode, options?: CompileOptions): string</a>
+        </li>
+      
+        <li class="toc-item toc-level-4">
+          <a href="#compileoptions" class="toc-link">CompileOptions</a>
         </li>
       
         <li class="toc-item toc-level-2">
@@ -397,11 +461,27 @@
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#registersakkocomponentast-rootnode-void" class="toc-link">registerSakkoComponent(ast: RootNode): void</a>
+          <a href="#registersakkocomponentast-rootnode-options-registeroptions-promisevoid" class="toc-link">registerSakkoComponent(ast: RootNode, options?: RegisterOptions): Promise&lt;void&gt;</a>
+        </li>
+      
+        <li class="toc-item toc-level-4">
+          <a href="#registeroptions" class="toc-link">RegisterOptions</a>
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#getcomponentname-string-registeredcomponent-undefined" class="toc-link">getComponent(name: string): RegisteredComponent | undefined</a>
+          <a href="#getcomponentname-string-readonlyregisteredcomponent-undefined" class="toc-link">getComponent(name: string): Readonly&lt;RegisteredComponent&gt; | undefined</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#getallcomponents-readonlymapstring-readonlyregisteredcomponent" class="toc-link">getAllComponents(): ReadonlyMap&lt;string, Readonly&lt;RegisteredComponent&gt;&gt;</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#getcomponentsourcename-string-string-undefined" class="toc-link">getComponentSource(name: string): string | undefined</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#registeredcomponent" class="toc-link">RegisteredComponent</a>
         </li>
       
     </ul>
