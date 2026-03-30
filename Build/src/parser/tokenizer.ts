@@ -314,10 +314,10 @@ function tokenizeStringWithInterpolation(
     tokenizerError("Unterminated string", {
       position: i,
       line: currentLine,
-      column: textStartCol,
+      column: originalStartCol,
       suggestion: "Add a closing quote \""
     });
-    throw new Error(`Unterminated string at line ${currentLine}, col ${textStartCol}`);
+    throw new Error(`Unterminated string at line ${currentLine}, col ${originalStartCol}`);
   }
 
   if (textBuffer.length > 0 || tokens.length === 0) {

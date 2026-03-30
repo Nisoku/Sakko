@@ -4,9 +4,9 @@ import { toPascalCase } from "../utils";
 import * as sairin from "@nisoku/sairin";
 
 interface RegisteredComponent {
-  name: string;
-  factory: (id?: string) => HTMLElement;
-  source: string;
+  readonly name: string;
+  readonly factory: (id?: string) => HTMLElement;
+  readonly source: string;
 }
 
 const componentRegistry = new Map<string, RegisteredComponent>();
@@ -69,7 +69,10 @@ export function registerSakkoComponent(ast: RootNode): void {
 
           connectedCallback() {
             if (this._rendered) return;
-            this._component = factory();
+            const entry = componentRegistry.get(ast.name);
+            if (!entry) return;
+            const id = `${ast.name}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+            this._component = entry.factory(id);
             this.shadowRoot!.appendChild(this._component);
             this._rendered = true;
           }
@@ -87,12 +90,18 @@ export function registerSakkoComponent(ast: RootNode): void {
   }
 }
 
-export function getComponent(name: string): RegisteredComponent | undefined {
-  return componentRegistry.get(name);
+export function getComponent(name: string): Readonly<RegisteredComponent> | undefined {
+  const entry = componentRegistry.get(name);
+  if (!entry) return undefined;
+  return Object.freeze({ ...entry });
 }
 
-export function getAllComponents(): Map<string, RegisteredComponent> {
-  return new Map(componentRegistry);
+export function getAllComponents(): ReadonlyMap<string, Readonly<RegisteredComponent>> {
+  const frozen = new Map<string, Readonly<RegisteredComponent>>();
+  for (const [key, entry] of componentRegistry) {
+    frozen.set(key, Object.freeze({ ...entry }));
+  }
+  return Object.freeze(frozen);
 }
 
 export function getComponentSource(name: string): string | undefined {

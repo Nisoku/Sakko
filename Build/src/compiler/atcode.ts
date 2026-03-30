@@ -131,8 +131,9 @@ function compileHandlerBody(code: string, ctx: ComponentContext): string {
     );
 
     result = result.replace(
-      new RegExp(`(?<![A-Za-z0-9_$])${escapedVarName}(?![A-Za-z0-9_$])\\s*=(?![=>])\\s*([^;]+)`, "g"),
+      new RegExp(`(?<![A-Za-z0-9_$])${escapedVarName}(?<![A-Za-z0-9_$])\\s*=(?![=>])\\s*([^;]+)`, "g"),
       (match, expr) => {
+        if (expr.includes('.set(')) return match;
         const cleanExpr = expr.trim();
         const exprWithGet = addGetCallsToStateVars(cleanExpr, ctx);
         return `${varName}.set(${exprWithGet})`;
