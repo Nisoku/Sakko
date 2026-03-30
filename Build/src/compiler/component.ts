@@ -16,6 +16,15 @@ import {
 } from "./atcode";
 import { toPascalCase } from "../utils";
 
+export type SairinImportMode = "global" | "esm" | "cjs";
+
+export interface CompileOptions {
+  id?: string;
+  sairinImport?: SairinImportMode;
+  sairinGlobal?: string;
+  sairinModule?: string;
+}
+
 function formatCode(code: string): string {
   const lines = code.split("\n");
   let result: string[] = [];
@@ -70,14 +79,31 @@ function hashString(str: string): number {
   return Math.abs(hash);
 }
 
+function generateSairinImports(mode: SairinImportMode, globalName: string, modulePath: string): string {
+  switch (mode) {
+    case "global":
+      return `const { signal, effect, derived, path } = ${globalName};
+const { bind, bindEvent, bindInputValue, bindInputChecked } = ${globalName};`;
+    case "esm":
+      return `import { signal, effect, derived, path } from '${modulePath}';
+import { bind, bindEvent, bindInputValue, bindInputChecked } from '${modulePath}';`;
+    case "cjs":
+      return `const { signal, effect, derived, path } = require('${modulePath}');
+const { bind, bindEvent, bindInputValue, bindInputChecked } = require('${modulePath}');`;
+  }
+}
+
 export function compileComponent(
   root: RootNode,
-  options?: { id?: string },
+  options?: CompileOptions,
 ): string {
   const componentId = options?.id
     ? `comp_${options.id}_${hashString(root.name)}`
     : `comp_${hashString(root.name)}`;
   const componentName = toPascalCase(root.name);
+  const importMode = options?.sairinImport ?? "global";
+  const globalName = options?.sairinGlobal ?? "sairin";
+  const modulePath = options?.sairinModule ?? "sairin";
 
   const ctx: ComponentContext = {
     componentId,
@@ -87,8 +113,7 @@ export function compileComponent(
     elementIndex: 0,
   };
 
-  const imports = `import { signal, effect, derived, path } from '@nisoku/sairin';
-import { bind, bindEvent, bindInputValue, bindInputChecked } from '@nisoku/sairin';`;
+  const imports = generateSairinImports(importMode, globalName, modulePath);
 
   const stateCode = compileStateDeclarations(root.declarations, ctx);
   const effectCode = compileEffectDeclarations(root.declarations, ctx);
@@ -121,7 +146,11 @@ ${renderCode}
   return signals ? (signals[signalName] || null) : null;
 }`;
 
-  return formatCode([imports, "const instanceSignals = new Map();\nconst REACTIVE_CLASSES = Symbol('sakko.reactiveClasses');", "", componentFn, "", getSignalFn].join("\n\n"));
+  const disposeFn = `export function dispose(id) {
+  instanceSignals.delete(id);
+}`;
+
+  return formatCode([imports, "const instanceSignals = new Map();\nconst REACTIVE_CLASSES = Symbol('sakko.reactiveClasses');", "", componentFn, "", getSignalFn, "", disposeFn].join("\n\n"));
 }
 
 function compileChildren(children: ASTNode[], ctx: ComponentContext, parentVar: string = "root"): string {

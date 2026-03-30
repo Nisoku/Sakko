@@ -74,7 +74,7 @@ function addGetCallsToStateVars(code: string, ctx: ComponentContext): string {
 
     const escapedVarName = escapeRegExp(varName);
     const regex = new RegExp(
-      `(?<![A-Za-z0-9_$.])${escapedVarName}(?![A-Za-z0-9_$])(?!\\.get|\\.set|\\s*=)`,
+      `(?<![A-Za-z0-9_$.])${escapedVarName}(?![A-Za-z0-9_$])(?!\\.get|\\.set|\\s*=(?!=))`,
       "g",
     );
     result = result.replace(regex, `${varName}.get()`);
@@ -131,7 +131,7 @@ function compileHandlerBody(code: string, ctx: ComponentContext): string {
     );
 
     result = result.replace(
-      new RegExp(`(?<![A-Za-z0-9_$])${escapedVarName}(?<![A-Za-z0-9_$])\\s*=(?![=>])\\s*([^;]+)`, "g"),
+      new RegExp(`(?<![A-Za-z0-9_$])${escapedVarName}(?![A-Za-z0-9_$])\\s*=(?!\\s*=(?!=))\\s*([^;]+)`, "g"),
       (match, expr) => {
         if (expr.includes('.set(')) return match;
         const cleanExpr = expr.trim();

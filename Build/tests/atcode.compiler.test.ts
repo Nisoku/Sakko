@@ -13,7 +13,7 @@ describe("Compiler - Atcode Compilation", () => {
     }>`;
 
     const ast = parseSakko(input);
-    const compiled = compileComponent(ast);
+    const compiled = compileComponent(ast, { sairinImport: "esm" });
     
     expect(compiled).toContain('import { signal, effect, derived, path }');
     expect(compiled).toContain('signal(path("component"');
@@ -83,11 +83,11 @@ describe("Compiler - Atcode Compilation", () => {
       @state {
         value = ""
       }
-      input @on:input { value = e.target.value }: ""
+      input @on:input { value = e.target.value }
     }>`;
 
     const ast = parseSakko(input);
-    const compiled = compileComponent(ast);
+    const compiled = compileComponent(ast, { sairinImport: "esm" });
     
     expect(compiled).toContain('bindEvent(input0, "input", (e) => {');
     expect(compiled).toContain('value.set(e.target.value)');

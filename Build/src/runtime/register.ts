@@ -1,86 +1,127 @@
 import type { RootNode } from "../parser/parser";
-import { compileComponent } from "../compiler/component";
+import { compileComponent, type SairinImportMode } from "../compiler/component";
 import { toPascalCase } from "../utils";
-import * as sairin from "@nisoku/sairin";
 
 interface RegisteredComponent {
   readonly name: string;
   readonly factory: (id?: string) => HTMLElement;
+  readonly dispose: (id: string) => void;
   readonly source: string;
 }
 
 const componentRegistry = new Map<string, RegisteredComponent>();
 
-export function registerSakkoComponent(ast: RootNode): void {
-  const componentCode = compileComponent(ast);
+export interface RegisterOptions {
+  sairinImport?: SairinImportMode;
+  sairinGlobal?: string;
+  sairinModule?: string;
+}
+
+async function createFactoryFromCode(
+  evalCode: string,
+  componentName: string,
+  modulePath: string,
+): Promise<{ factory: (id?: string) => HTMLElement; dispose: (id: string) => void }> {
+  const isBrowser = typeof window !== "undefined" && typeof document !== "undefined";
+
+  if (isBrowser) {
+    const moduleCode = `
+${evalCode}
+export { ${componentName}, dispose };
+`;
+    const blob = new Blob([moduleCode], { type: "text/javascript" });
+    const url = URL.createObjectURL(blob);
+    try {
+      const mod = await import(url);
+      return {
+        factory: mod[componentName],
+        dispose: mod.dispose,
+      };
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  } else {
+    const factory = new Function(`
+      const module = { exports: {} };
+      const exports = module.exports;
+      ${evalCode}
+      return { factory: module.exports.${componentName}, dispose: module.exports.dispose };
+    `)() as { factory: (id?: string) => HTMLElement; dispose: (id: string) => void };
+    return factory;
+  }
+}
+
+export async function registerSakkoComponent(ast: RootNode, options: RegisterOptions = {}): Promise<void> {
+  const importMode = options.sairinImport ?? "global";
+  const globalName = options.sairinGlobal ?? "sairin";
+  const modulePath = options.sairinModule ?? "sairin";
+
+  const componentCode = compileComponent(ast, { sairinImport: importMode, sairinGlobal: globalName, sairinModule: modulePath });
   const componentName = toPascalCase(ast.name);
 
-  // Transform ESM to simple CJS-like eval format
-  const evalCode = componentCode
-    // import { a, b } from 'mod' → const {a, b} = require('mod');
-    .replace(/import\s+{([\s\S]*?)}\s+from\s+['"]([^'"]+)['"];?/g, (match, p1, p2) => {
-      const cleaned = p1.replace(/\s+/g, ' ').trim();
-      return `const {${cleaned}} = require('${p2}');`;
-    })
-    // import * as name from 'mod' → const name = require('mod');
-    .replace(/import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"];?/g, (_m, name, mod) =>
-      `const ${name} = require('${mod}');`
-    )
-    // export { foo, bar } → (append to module.exports)
-    .replace(/export\s+\{([\s\S]*?)\};?/g, (_m, specifiers) => {
-      const names = specifiers.split(',').map((s: string) => s.trim()).filter(Boolean);
-      return names.map((n: string) => `module.exports.${n} = ${n};`).join('\n');
-    })
-    .replace(/export\s+default\s+function/g, 'module.exports = function')
-    .replace(/export\s+default\s+/g, 'module.exports = ')
-    .replace(/export\s+function/g, 'function')
-    .replace(/export\s+const/g, 'const');
+  if (importMode === "esm") {
+    throw new Error(`registerSakkoComponent: ESM mode requires a bundler. Use 'global' or 'cjs' mode, or call compileComponent separately.`);
+  }
 
-  const fallbackRequire = (pkg: string) => {
-    if (pkg === "@nisoku/sairin") return sairin;
-    if (typeof require !== "undefined") return require(pkg);
-    throw new Error(`fallbackRequire: Cannot resolve module "${pkg}". standard 'require' is not available in this environment.`);
-  };
+  let evalCode = componentCode;
+  if (importMode === "cjs") {
+    evalCode = componentCode
+      .replace(/import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"];?/g, (_m, name, mod) =>
+        `const ${name} = require('${mod}');`
+      )
+      .replace(/export\s+\{([\s\S]*?)\};?/g, (_m, specifiers) => {
+        const names = specifiers.split(',').map((s: string) => s.trim()).filter(Boolean);
+        return names.map((n: string) => `module.exports.${n} = ${n};`).join('\n');
+      })
+      .replace(/export\s+default\s+function/g, 'module.exports = function')
+      .replace(/export\s+default\s+/g, 'module.exports = ')
+      .replace(/export\s+function/g, 'function')
+      .replace(/export\s+const/g, 'const');
+  }
 
-  const factory = new Function("require", `
-    ${evalCode}
-    return ${componentName};
-  `)(fallbackRequire) as (id?: string) => HTMLElement;
+  const { factory, dispose } = await createFactoryFromCode(evalCode, componentName, modulePath);
 
   componentRegistry.set(ast.name, {
     name: ast.name,
     factory,
+    dispose,
     source: componentCode,
   });
 
   if (typeof customElements !== "undefined") {
-    const tagName = `sakko-${ast.name}`;
+    const tagName = `sakko-${ast.name.toLowerCase()}`;
     if (!customElements.get(tagName)) {
       customElements.define(
         tagName,
         class extends HTMLElement {
+          private _rendered = false;
+          private _component: HTMLElement | null = null;
+          private _componentId: string | null = null;
+
           constructor() {
             super();
             this.attachShadow({ mode: "open" });
           }
 
-          private _rendered = false;
-          private _component: HTMLElement | null = null;
-
           connectedCallback() {
             if (this._rendered) return;
             const entry = componentRegistry.get(ast.name);
             if (!entry) return;
-            const id = `${ast.name}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-            this._component = entry.factory(id);
+            this._componentId = `${ast.name}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+            this._component = entry.factory(this._componentId);
             this.shadowRoot!.appendChild(this._component);
             this._rendered = true;
           }
 
           disconnectedCallback() {
             if (this._component) {
+              const entry = componentRegistry.get(ast.name);
+              if (entry && this._componentId) {
+                entry.dispose(this._componentId);
+              }
               this.shadowRoot!.innerHTML = "";
               this._component = null;
+              this._componentId = null;
             }
             this._rendered = false;
           }
