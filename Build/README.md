@@ -5,7 +5,7 @@
 
 **The modern DSL (Design Sub-Language) for describing UI trees.**
 
-Sakko is a bracket-based markup language that compiles to component trees. Write concise, readable markup. Get a structured AST. Use it with Sazami, build your own renderer, or create something entirely different.
+Sakko is a bracket-based markup language that compiles to component trees. Write concise, readable markup. Get a structured AST, compile it to reactive JavaScript components, or use it as a standalone parser.
 
 ## What does it look like?
 
@@ -236,6 +236,40 @@ Use `{expression}` in text values:
 text: "Hello, {name}!"
 text: "{a} + {b} = {a + b}"
 text: "Items: {items.map(i => i.name).join(', ')}"
+```
+
+## Compiling & Running
+
+Sakko includes a compiler and runtime for building reactive web components.
+
+### Compile to JavaScript
+
+```typescript
+import { parseSakko, compileComponent } from '@nisoku/sakko';
+
+const ast = parseSakko('<counter { @state { count = 0 } }>');
+const js = compileComponent(ast, { sairinImport: 'global' });
+```
+
+**Sairin Modes:**
+- `'global'` (default) - Uses `window.sairin` (load via `<script>` tag)
+- `'esm'` - ESM imports (use with a bundler)
+- `'cjs'` - CommonJS requires (Node.js only)
+
+### Register as Web Component
+
+```typescript
+import { parseSakko, registerSakkoComponent } from '@nisoku/sakko';
+
+const ast = parseSakko('<my-counter { @state { count = 0 } }>');
+await registerSakkoComponent(ast);
+
+// Now <sakko-my-counter> is available
+```
+
+Requires `sairin` to be loaded globally:
+```html
+<script src="sairin.js"></script>
 ```
 
 ## Project structure

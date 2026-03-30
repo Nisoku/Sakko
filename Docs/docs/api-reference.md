@@ -146,7 +146,7 @@ type Token = {
 
 ## Compiler
 
-### `compileComponent(root: RootNode): string`
+### `compileComponent(root: RootNode, options?: CompileOptions): string`
 
 Compile a Sakko AST to JavaScript with Sairin signals.
 
@@ -155,28 +155,48 @@ import { parseSakko, compileComponent } from '@nisoku/sakko';
 
 const ast = parseSakko('<counter { @state { count = 0 } }>');
 const js = compileComponent(ast);
-// Returns: import { signal } from '@nisoku/sairin'; ...
+// Returns: const { signal } = sairin; ... (global mode by default)
 ```
+
+#### CompileOptions
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `id` | `string` | auto-generated | Custom component ID |
+| `sairinImport` | `'global' \| 'esm' \| 'cjs'` | `'global'` | How to import Sairin |
+| `sairinGlobal` | `string` | `'sairin'` | Global name for `global` mode |
+| `sairinModule` | `string` | `'sairin'` | Module path for `esm`/`cjs` modes |
+
+**Sairin Import Modes:**
+- `'global'`: References `window.sairin` (requires `<script src="sairin.js">`)
+- `'esm'`: Generates `import { signal } from 'sairin'` (use with bundler)
+- `'cjs'`: Generates `const { signal } = require('sairin')` (Node.js only)
 
 ---
 
 ## Runtime
 
-### `registerSakkoComponent(ast: RootNode): void`
+### `registerSakkoComponent(ast: RootNode, options?: RegisterOptions): Promise<void>`
 
-Register a component as a custom element.
+Register a component as a custom element. **Async** in browser environments.
 
 ```typescript
 import { parseSakko, registerSakkoComponent } from '@nisoku/sakko';
 
 const ast = parseSakko('<my-counter { @state { count = 0 } }>');
-registerSakkoComponent(ast);
+await registerSakkoComponent(ast);
 // Now <sakko-my-counter> is available as a web component
 ```
 
-### `getComponent(name: string): RegisteredComponent | undefined`
+#### RegisterOptions
 
-Get a registered component.
+Same as `CompileOptions`: `sairinImport`, `sairinGlobal`, `sairinModule`.
+
+**Note:** In browsers, only `'global'` mode is supported. For `'esm'` or `'cjs'`, call `compileComponent` separately and use a bundler.
+
+### `getComponent(name: string): Readonly<RegisteredComponent> | undefined`
+
+Get a registered component by name (case-insensitive).
 
 ```typescript
 import { getComponent } from '@nisoku/sakko';
@@ -184,5 +204,26 @@ import { getComponent } from '@nisoku/sakko';
 const comp = getComponent('my-counter');
 if (comp) {
   console.log(comp.source); // The compiled JS source
+  console.log(comp.factory); // The factory function
+  console.log(comp.dispose); // Cleanup function for instances
+}
+```
+
+### `getAllComponents(): ReadonlyMap<string, Readonly<RegisteredComponent>>`
+
+Get all registered components.
+
+### `getComponentSource(name: string): string | undefined`
+
+Get the compiled source for a component by name.
+
+### RegisteredComponent
+
+```typescript
+interface RegisteredComponent {
+  readonly name: string;              // Component name (lowercase)
+  readonly factory: (id?: string) => HTMLElement;  // Instance factory
+  readonly dispose: (id: string) => void;  // Cleanup function
+  readonly source: string;            // Compiled JS source
 }
 ```
