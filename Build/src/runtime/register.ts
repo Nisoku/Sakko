@@ -21,6 +21,22 @@ function isBrowser(): boolean {
   return typeof window !== "undefined" && typeof document !== "undefined";
 }
 
+function hasExportDeclaration(evalCode: string, name: string): boolean {
+  const exportDeclaration = new RegExp(`export\\s+(?:function|const|let|class)\\s+${name}\\b`);
+  const exportList = new RegExp(`export\\s*{\\s*${name}\\b`);
+  return exportDeclaration.test(evalCode) || exportList.test(evalCode);
+}
+
+function stripExports(code: string): string {
+  return code
+    .replace(/export\s+function\s+/g, 'function ')
+    .replace(/export\s+const\s+/g, 'const ')
+    .replace(/export\s+let\s+/g, 'let ')
+    .replace(/export\s+var\s+/g, 'var ')
+    .replace(/export\s+class\s+/g, 'class ')
+    .replace(/export\s+default\s+/g, '');
+}
+
 async function createFactoryFromCode(
   evalCode: string,
   componentName: string,
@@ -28,7 +44,7 @@ async function createFactoryFromCode(
 ): Promise<{ factory: (id?: string) => HTMLElement; dispose: (id: string) => void }> {
   if (isBrowser()) {
     let moduleCode = evalCode;
-    if (!evalCode.includes(`export { ${componentName}, dispose }`)) {
+    if (!hasExportDeclaration(evalCode, componentName) || !hasExportDeclaration(evalCode, 'dispose')) {
       moduleCode = `${evalCode}\nexport { ${componentName}, dispose };\n`;
     }
     const blob = new Blob([moduleCode], { type: "text/javascript" });
@@ -43,10 +59,11 @@ async function createFactoryFromCode(
       URL.revokeObjectURL(url);
     }
   } else {
+    const strippedCode = stripExports(evalCode);
     const result = new Function('require', `
       const module = { exports: {} };
       const exports = module.exports;
-      ${evalCode}
+      ${strippedCode}
       return { factory: module.exports.${componentName}, dispose: module.exports.dispose };
     `)(require);
     return result as { factory: (id?: string) => HTMLElement; dispose: (id: string) => void };
@@ -124,6 +141,7 @@ export async function registerSakkoComponent(ast: RootNode, options: RegisterOpt
           private _rendered = false;
           private _component: HTMLElement | null = null;
           private _componentId: string | null = null;
+          private _dispose: ((id: string) => void) | null = null;
 
           constructor() {
             super();
@@ -136,19 +154,20 @@ export async function registerSakkoComponent(ast: RootNode, options: RegisterOpt
             if (!entry) return;
             this._componentId = `${normalizedName}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
             this._component = entry.factory(this._componentId);
+            this._dispose = entry.dispose;
             this.shadowRoot!.appendChild(this._component);
             this._rendered = true;
           }
 
           disconnectedCallback() {
             if (this._component) {
-              const entry = componentRegistry.get(normalizedName);
-              if (entry && this._componentId) {
-                entry.dispose(this._componentId);
+              if (this._dispose && this._componentId) {
+                this._dispose(this._componentId);
               }
               this.shadowRoot!.innerHTML = "";
               this._component = null;
               this._componentId = null;
+              this._dispose = null;
             }
             this._rendered = false;
           }
