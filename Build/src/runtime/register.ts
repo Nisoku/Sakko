@@ -41,13 +41,13 @@ export { ${componentName}, dispose };
       URL.revokeObjectURL(url);
     }
   } else {
-    const factory = new Function(`
+    const result = new Function('require', `
       const module = { exports: {} };
       const exports = module.exports;
       ${evalCode}
       return { factory: module.exports.${componentName}, dispose: module.exports.dispose };
-    `)() as { factory: (id?: string) => HTMLElement; dispose: (id: string) => void };
-    return factory;
+    `)(require);
+    return result as { factory: (id?: string) => HTMLElement; dispose: (id: string) => void };
   }
 }
 
@@ -65,18 +65,40 @@ export async function registerSakkoComponent(ast: RootNode, options: RegisterOpt
 
   let evalCode = componentCode;
   if (importMode === "cjs") {
+    // ESM->CJS transform: handles named exports, default exports, and namespace imports.
+    // Limitations:
+    // - Does not handle re-exports like `export { a } from 'module'`
+    // - May incorrectly match 'export'/'import' inside string literals (mitigated: generated code doesn't contain these)
+    // - For complex ESM syntax, use a bundler instead
     evalCode = componentCode
       .replace(/import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"];?/g, (_m, name, mod) =>
         `const ${name} = require('${mod}');`
       )
-      .replace(/export\s+\{([\s\S]*?)\};?/g, (_m, specifiers) => {
-        const names = specifiers.split(',').map((s: string) => s.trim()).filter(Boolean);
-        return names.map((n: string) => `module.exports.${n} = ${n};`).join('\n');
+      .replace(/import\s+\{\s*([\s\S]*?)\s*\}\s*from\s+['"]([^'"]+)['"];?/g, (_m, specifiers, mod) => {
+        const names = specifiers.split(',').map((s: string) => {
+          const trimmed = s.trim();
+          const match = trimmed.match(/^(\w+)(?:\s+as\s+\w+)?$/);
+          return match ? match[1] : trimmed;
+        }).filter(Boolean);
+        return `const {${names.join(', ')}} = require('${mod}');`;
       })
-      .replace(/export\s+default\s+function/g, 'module.exports = function')
+      .replace(/export\s+\{\s*([\s\S]*?)\s*\};?/g, (_m, specifiers) => {
+        const names = specifiers.split(',').map((s: string) => {
+          const trimmed = s.trim();
+          const match = trimmed.match(/^(\w+)(?:\s+as\s+(\w+))?$/);
+          if (match) {
+            const original = match[1];
+            const alias = match[2];
+            return `module.exports.${alias || original} = ${original};`;
+          }
+          return '';
+        }).filter(Boolean);
+        return names.join('\n');
+      })
+      .replace(/export\s+default\s+function\s+(\w+)/g, 'module.exports = function $1')
       .replace(/export\s+default\s+/g, 'module.exports = ')
-      .replace(/export\s+function/g, 'function')
-      .replace(/export\s+const/g, 'const');
+      .replace(/export\s+function\s+/g, 'function ')
+      .replace(/export\s+const\s+/g, 'const ');
   }
 
   const { factory, dispose } = await createFactoryFromCode(evalCode, componentName, modulePath);
