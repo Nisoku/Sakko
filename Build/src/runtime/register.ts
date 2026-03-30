@@ -17,18 +17,20 @@ export interface RegisterOptions {
   sairinModule?: string;
 }
 
+function isBrowser(): boolean {
+  return typeof window !== "undefined" && typeof document !== "undefined";
+}
+
 async function createFactoryFromCode(
   evalCode: string,
   componentName: string,
   modulePath: string,
 ): Promise<{ factory: (id?: string) => HTMLElement; dispose: (id: string) => void }> {
-  const isBrowser = typeof window !== "undefined" && typeof document !== "undefined";
-
-  if (isBrowser) {
-    const moduleCode = `
-${evalCode}
-export { ${componentName}, dispose };
-`;
+  if (isBrowser()) {
+    let moduleCode = evalCode;
+    if (!evalCode.includes(`export { ${componentName}, dispose }`)) {
+      moduleCode = `${evalCode}\nexport { ${componentName}, dispose };\n`;
+    }
     const blob = new Blob([moduleCode], { type: "text/javascript" });
     const url = URL.createObjectURL(blob);
     try {
@@ -55,21 +57,21 @@ export async function registerSakkoComponent(ast: RootNode, options: RegisterOpt
   const importMode = options.sairinImport ?? "global";
   const globalName = options.sairinGlobal ?? "sairin";
   const modulePath = options.sairinModule ?? "sairin";
+  const normalizedName = ast.name.toLowerCase();
 
   const componentCode = compileComponent(ast, { sairinImport: importMode, sairinGlobal: globalName, sairinModule: modulePath });
   const componentName = toPascalCase(ast.name);
 
   if (importMode === "esm") {
-    throw new Error(`registerSakkoComponent: ESM mode requires a bundler. Use 'global' or 'cjs' mode, or call compileComponent separately.`);
+    throw new Error(`registerSakkoComponent: ESM mode requires a bundler. Use 'global' mode or call compileComponent separately.`);
+  }
+
+  if (importMode === "cjs" && isBrowser()) {
+    throw new Error(`registerSakkoComponent: CJS mode is not supported in browsers. Use 'global' mode or call compileComponent separately for bundler integration.`);
   }
 
   let evalCode = componentCode;
   if (importMode === "cjs") {
-    // ESM->CJS transform: handles named exports, default exports, and namespace imports.
-    // Limitations:
-    // - Does not handle re-exports like `export { a } from 'module'`
-    // - May incorrectly match 'export'/'import' inside string literals (mitigated: generated code doesn't contain these)
-    // - For complex ESM syntax, use a bundler instead
     evalCode = componentCode
       .replace(/import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"];?/g, (_m, name, mod) =>
         `const ${name} = require('${mod}');`
@@ -83,7 +85,7 @@ export async function registerSakkoComponent(ast: RootNode, options: RegisterOpt
         return `const {${names.join(', ')}} = require('${mod}');`;
       })
       .replace(/export\s+\{\s*([\s\S]*?)\s*\};?/g, (_m, specifiers) => {
-        const names = specifiers.split(',').map((s: string) => {
+        const lines = specifiers.split(',').map((s: string) => {
           const trimmed = s.trim();
           const match = trimmed.match(/^(\w+)(?:\s+as\s+(\w+))?$/);
           if (match) {
@@ -93,25 +95,28 @@ export async function registerSakkoComponent(ast: RootNode, options: RegisterOpt
           }
           return '';
         }).filter(Boolean);
-        return names.join('\n');
+        return lines.join('\n');
       })
       .replace(/export\s+default\s+function\s+(\w+)/g, 'module.exports = function $1')
       .replace(/export\s+default\s+/g, 'module.exports = ')
       .replace(/export\s+function\s+/g, 'function ')
       .replace(/export\s+const\s+/g, 'const ');
+
+    evalCode += `\nmodule.exports.${componentName} = ${componentName};\n`;
+    evalCode += `module.exports.dispose = dispose;\n`;
   }
 
   const { factory, dispose } = await createFactoryFromCode(evalCode, componentName, modulePath);
 
-  componentRegistry.set(ast.name, {
-    name: ast.name,
+  componentRegistry.set(normalizedName, {
+    name: normalizedName,
     factory,
     dispose,
     source: componentCode,
   });
 
   if (typeof customElements !== "undefined") {
-    const tagName = `sakko-${ast.name.toLowerCase()}`;
+    const tagName = `sakko-${normalizedName}`;
     if (!customElements.get(tagName)) {
       customElements.define(
         tagName,
@@ -127,9 +132,9 @@ export async function registerSakkoComponent(ast: RootNode, options: RegisterOpt
 
           connectedCallback() {
             if (this._rendered) return;
-            const entry = componentRegistry.get(ast.name);
+            const entry = componentRegistry.get(normalizedName);
             if (!entry) return;
-            this._componentId = `${ast.name}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+            this._componentId = `${normalizedName}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
             this._component = entry.factory(this._componentId);
             this.shadowRoot!.appendChild(this._component);
             this._rendered = true;
@@ -137,7 +142,7 @@ export async function registerSakkoComponent(ast: RootNode, options: RegisterOpt
 
           disconnectedCallback() {
             if (this._component) {
-              const entry = componentRegistry.get(ast.name);
+              const entry = componentRegistry.get(normalizedName);
               if (entry && this._componentId) {
                 entry.dispose(this._componentId);
               }
@@ -154,7 +159,7 @@ export async function registerSakkoComponent(ast: RootNode, options: RegisterOpt
 }
 
 export function getComponent(name: string): Readonly<RegisteredComponent> | undefined {
-  const entry = componentRegistry.get(name);
+  const entry = componentRegistry.get(name.toLowerCase());
   if (!entry) return undefined;
   return Object.freeze({ ...entry });
 }
@@ -168,5 +173,5 @@ export function getAllComponents(): ReadonlyMap<string, Readonly<RegisteredCompo
 }
 
 export function getComponentSource(name: string): string | undefined {
-  return componentRegistry.get(name)?.source;
+  return componentRegistry.get(name.toLowerCase())?.source;
 }
