@@ -3,14 +3,17 @@ let logger: any = null;
 function getLogger(scope: string) {
   if (!logger) {
     try {
-      const satori = require("@nisoku/satori-log");
+      const satori = require("@nisoku/satori");
       const s = satori.createSatori({ logLevel: "error", enableConsole: true });
       logger = s.createLogger(scope);
     } catch {
       logger = {
-        info: (msg: string, opts?: any) => console.log(`[${scope}] ${msg}`, opts),
-        warn: (msg: string, opts?: any) => console.warn(`[${scope}] ${msg}`, opts),
-        error: (msg: string, opts?: any) => console.error(`[${scope}] ${msg}`, opts),
+        info: (msg: string, opts?: any) =>
+          console.log(`[${scope}] ${msg}`, opts),
+        warn: (msg: string, opts?: any) =>
+          console.warn(`[${scope}] ${msg}`, opts),
+        error: (msg: string, opts?: any) =>
+          console.error(`[${scope}] ${msg}`, opts),
       };
     }
   }
@@ -37,13 +40,20 @@ export function tokenizerError(
 ): void {
   const log = getLogger("sakko");
   log.error(message, {
-    state: { position: options.position, line: options.line, column: options.column },
+    state: {
+      position: options.position,
+      line: options.line,
+      column: options.column,
+    },
     suggest: options.suggestion,
     tags: ["tokenizer", "error"],
   });
 }
 
-export function parserError(message: string, options: ParserErrorOptions): void {
+export function parserError(
+  message: string,
+  options: ParserErrorOptions,
+): void {
   const log = getLogger("sakko");
   log.error(message, {
     state: { line: options.line, column: options.column },

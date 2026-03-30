@@ -1,4 +1,5 @@
 import { tokenize } from "../src/parser/tokenizer";
+import { describe, test, expect } from "@jest/globals";
 
 describe("Tokenizer", () => {
   test("should tokenize basic elements", () => {
@@ -76,8 +77,10 @@ describe("Tokenizer", () => {
     expect(() => tokenize('text: "unclosed string')).toThrow("Unterminated string");
   });
 
-  test("should throw error on unexpected character", () => {
-    expect(() => tokenize("text: @invalid")).toThrow("Unexpected character: @");
+  test("should handle @ token", () => {
+    const tokens = tokenize("@state");
+    expect(tokens[0].type).toBe("AT");
+    expect(tokens[1].type).toBe("IDENT");
   });
 
   test("should preserve URLs inside strings", () => {
@@ -99,10 +102,11 @@ describe("Tokenizer", () => {
     expect(tokens[2].line).toBe(3);
   });
 
-  test("handles backslash in strings (no escape processing)", () => {
+  test("handles backslash escape sequences in strings", () => {
+    // \n should now be decoded to an actual newline character
     const tokens = tokenize('text: "hello\\nworld"');
     const str = tokens.find((t) => t.type === "STRING");
-    expect(str?.value).toBe("hello\\nworld");
+    expect(str?.value).toBe("hello\nworld");
   });
 
   test("handles empty strings", () => {
@@ -141,9 +145,10 @@ describe("Tokenizer", () => {
     expect(str?.value).toBe("key: value");
   });
 
-  test("handles string with braces inside", () => {
+  test("tokenizes interpolation inside strings", () => {
     const tokens = tokenize('text: "{ hello }"');
-    const str = tokens.find((t) => t.type === "STRING");
-    expect(str?.value).toBe("{ hello }");
+    expect(tokens.find((t) => t.type === "INTERP_START")).toBeTruthy();
+    expect(tokens.find((t) => t.type === "EXPR")?.value).toBe("hello");
+    expect(tokens.find((t) => t.type === "INTERP_END")).toBeTruthy();
   });
 });

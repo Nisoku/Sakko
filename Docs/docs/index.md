@@ -28,6 +28,28 @@ const ast = parseSakko('<page { button(accent): Click me }>');
 | **Parser** | Full AST generation with error messages |
 | **Types** | TypeScript definitions included |
 | **Zero deps** | Pure TypeScript, no external dependencies |
+| **Reactivity** | @state, @effect, @derived, @on:event, @bind, {interpolation} |
+
+## Reactivity
+
+Sakko compiles to Sairin signals for reactive UI:
+
+```sako
+<counter {
+  @state { count = 0 }
+  button @on:click { count++ }: "+"
+  text: "Count: {count}"
+}>
+```
+
+| Atcode | Description |
+| --- | --- |
+| `@state { }` | Declare reactive state |
+| `@effect { }` | Side effects that track dependencies |
+| `@derived { }` | Computed values |
+| `@on:event { }` | Event handlers |
+| `@bind="signal"` | Two-way input binding |
+| `{expr}` | Template interpolation |
 
 ## Documentation
 

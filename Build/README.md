@@ -154,6 +154,90 @@ card {
 }
 ```
 
+### Reactive State
+
+Declare reactive state with `@state`:
+
+```sako
+<counter {
+  @state {
+    count = 0
+    step = 1
+  }
+  
+  button @on:click { count++ }: "+"
+  text: "Count: {count}"
+}>
+```
+
+Compiles to Sairin signals. Read values with `{name}` interpolation.
+
+### Effects
+
+Run side effects with `@effect`:
+
+```sako
+<app {
+  @state { count = 0 }
+  
+  @effect {
+    console.log("Count changed:", count)
+    document.title = `Count: ${count}`
+  }
+  
+  button @on:click { count++ }: "Increment"
+}>
+```
+
+### Derived State
+
+Compute derived values with `@derived`:
+
+```sako
+<app {
+  @state { items = [] }
+  
+  @derived {
+    count = items.length
+    isEmpty = items.length === 0
+  }
+  
+  text: "{count} items"
+}>
+```
+
+### Event Handlers
+
+Handle events with `@on:event`:
+
+```sako
+button @on:click { count++ }: "Click"
+input @on:input { value = e.target.value }: ""
+div @on:mouseenter { isHovered = true }: "Hover me"
+```
+
+### Two-way Binding
+
+Bind inputs with `@bind`:
+
+```sako
+<form {
+  input @bind="username": ""
+  input(type password) @bind="password": ""
+  text: "Hello, {username}!"
+}>
+```
+
+### Interpolation
+
+Use `{expression}` in text values:
+
+```sako
+text: "Hello, {name}!"
+text: "{a} + {b} = {a + b}"
+text: "Items: {items.map(i => i.name).join(', ')}"
+```
+
 ## Project structure
 
 ```text

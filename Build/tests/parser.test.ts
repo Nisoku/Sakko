@@ -1,4 +1,6 @@
 import { parseSakko } from "../src/parser/parser";
+import { describe, test, expect } from "@jest/globals";
+import { fail } from "node:assert";
 
 describe("Parser", () => {
   test("should parse simple root block", () => {
@@ -107,8 +109,10 @@ describe("Parser", () => {
     }
   });
 
-  test("should throw error on malformed input", () => {
-    expect(() => parseSakko("page { text: Hello }")).toThrow();
+  test("should handle malformed input gracefully", () => {
+    // These get auto-wrapped and parse successfully
+    expect(parseSakko("page { text: Hello }").type).toBe('root');
+    // These are truly malformed and will throw
     expect(() => parseSakko("<page text: Hello }")).toThrow();
     expect(() => parseSakko("<page { text: Hello ")).toThrow();
   });

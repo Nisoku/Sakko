@@ -1,5 +1,6 @@
 import { tokenize } from '../src/parser/tokenizer';
 import { parseSakko } from '../src/parser/parser';
+import { describe, test, expect } from "@jest/globals";
 
 describe('Tokenizer - Error handling', () => {
   test('should throw on unterminated string', () => {
@@ -12,10 +13,6 @@ describe('Tokenizer - Error handling', () => {
 
   test('should throw on unterminated string with content after', () => {
     expect(() => tokenize('"hello world')).toThrow('Unterminated string');
-  });
-
-  test('should throw on unexpected character @', () => {
-    expect(() => tokenize('text@ value')).toThrow('Unexpected character: @');
   });
 
   test('should throw on unexpected character #', () => {
@@ -35,9 +32,10 @@ describe('Tokenizer - Error handling', () => {
     expect(tokens[2]).toMatchObject({ type: 'STRING', value: '   ' });
   });
 
-  test('should handle string with bracket characters inside', () => {
+  test('should handle string with bracket characters inside as interpolation', () => {
     const tokens = tokenize('text: "{[(<>)]}"');
-    expect(tokens[2]).toMatchObject({ type: 'STRING', value: '{[(<>)]}' });
+    expect(tokens[2]).toMatchObject({ type: 'INTERP_START', value: '{' });
+    expect(tokens[3]).toMatchObject({ type: 'EXPR', value: '[(<>)]' });
   });
 
   test('should handle single-character identifiers', () => {
@@ -86,12 +84,14 @@ describe('Parser - Error handling', () => {
     expect(() => parseSakko('   \n\n   ')).toThrow();
   });
 
-  test('should throw on comment-only input', () => {
-    expect(() => parseSakko('// just a comment')).toThrow();
+  test('should handle comment-only input gracefully', () => {
+    const result = parseSakko('// just a comment');
+    expect(result.type).toBe('root');
   });
 
-  test('should throw when missing opening <', () => {
-    expect(() => parseSakko('page { text: Hello }>')).toThrow("Expected '<'");
+  test('should auto-wrap input missing opening <', () => {
+    const result = parseSakko('page { text: Hello }');
+    expect(result.type).toBe('root');
   });
 
   test('should throw when missing closing >', () => {

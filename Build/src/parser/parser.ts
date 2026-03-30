@@ -1,37 +1,30 @@
 import { tokenize, type Token } from "./tokenizer";
 import { parserError } from "../errors";
+import { parseAtcodeDeclaration } from "./atcodes";
+import { parseInlineModifier } from "./atcodes/modifiers";
+import type {
+  Modifier,
+  InterpolatedTextPart,
+  InterpolatedText,
+  AtcodeDeclaration,
+  RootNode,
+  ElementNode,
+  InlineNode,
+  ListNode,
+  ASTNode,
+} from "./types";
 
-export type Modifier =
-  | { type: "flag"; value: string }
-  | { type: "pair"; key: string; value: string };
-
-export type RootNode = {
-  type: "root";
-  name: string;
-  modifiers: Modifier[];
-  children: ASTNode[];
+export type {
+  Modifier,
+  InterpolatedTextPart,
+  InterpolatedText,
+  AtcodeDeclaration,
+  RootNode,
+  ElementNode,
+  InlineNode,
+  ListNode,
+  ASTNode,
 };
-
-export type ElementNode = {
-  type: "element";
-  name: string;
-  modifiers: Modifier[];
-  children: ASTNode[];
-};
-
-export type InlineNode = {
-  type: "inline";
-  name: string;
-  modifiers: Modifier[];
-  value: string;
-};
-
-export type ListNode = {
-  type: "list";
-  items: ASTNode[];
-};
-
-export type ASTNode = ElementNode | InlineNode | ListNode;
 
 const KNOWN_KEYS = new Set([
   "cols",
@@ -73,11 +66,11 @@ export class Parser {
     this.source = source || "";
   }
 
-  private errorAt(msg: string, token?: Token): Error {
-    parserError(msg, { 
-      line: token?.line, 
+  errorAt(msg: string, token?: Token): Error {
+    parserError(msg, {
+      line: token?.line,
       column: token?.col,
-      suggestion: this._getSuggestion(msg)
+      suggestion: this._getSuggestion(msg),
     });
     if (!token || !this.source) return new Error(msg);
     const lines = this.source.split("\n");
@@ -89,7 +82,8 @@ export class Parser {
   }
 
   private _getSuggestion(msg: string): string | undefined {
-    if (msg.includes("Unexpected end of input")) return "Check for missing closing brackets";
+    if (msg.includes("Unexpected end of input"))
+      return "Check for missing closing brackets";
     if (msg.includes("Expected")) return "Add the expected token";
     if (msg.includes("Unexpected token")) return "Remove or replace this token";
     return undefined;
@@ -97,6 +91,14 @@ export class Parser {
 
   peek(): Token | undefined {
     return this.tokens[this.position];
+  }
+
+  peekAhead(offset: number): Token | undefined {
+    return this.tokens[this.position + offset];
+  }
+
+  peekAheadIs(type: string): boolean {
+    return this.peekAhead(1)?.type === type;
   }
 
   consume(): Token {
@@ -132,12 +134,13 @@ export class Parser {
     }
     const name = this.consume().value;
 
-    // Root element can have modifiers: <stack(gap medium) { ... }>
     const modifiers = this.check("LPAREN") ? this.parseModifiers() : [];
 
     this.expect("LBRACE", "Expected '{'");
 
+    const declarations: AtcodeDeclaration[] = [];
     const children: ASTNode[] = [];
+
     while (!this.check("RBRACE")) {
       if (!this.peek()) {
         throw this.errorAt(
@@ -145,15 +148,104 @@ export class Parser {
           this.tokens[this.tokens.length - 1],
         );
       }
-      children.push(this.parseNode());
-      if (this.check("SEMI")) this.consume();
-      if (this.check("COMMA")) this.consume();
+
+      if (this.check("AT")) {
+        const atToken = this.consume();
+        declarations.push(parseAtcodeDeclaration(this, atToken));
+      } else {
+        children.push(this.parseNode());
+      }
+
+      if (this.check("SEMI") || this.check("COMMA")) {
+        this.consume();
+      }
     }
 
     this.expect("RBRACE", "Expected '}'");
     this.expect("GT", "Expected '>'");
 
-    return { type: "root", name, modifiers, children };
+    return { type: "root", name, modifiers, declarations, children };
+  }
+
+  private _shouldInsertSpace(current: string, next: Token): boolean {
+    if (!current) return false;
+    const lastChar = current.slice(-1);
+    const nextChar = next.value[0];
+    const isWordEnd = /[a-zA-Z0-9_$]/.test(lastChar);
+    const isWordStart = /[a-zA-Z0-9_$]/.test(nextChar);
+    return isWordEnd && isWordStart;
+  }
+
+  parseBlockBody(): string {
+    let body = "";
+    let braceDepth = 0;
+
+    while (this.peek()) {
+      const token = this.peek()!;
+
+      if (token.type === "RBRACE" && braceDepth === 0) break;
+
+      if (token.type === "LBRACE") braceDepth++;
+      if (token.type === "RBRACE") braceDepth--;
+
+      if (this._shouldInsertSpace(body, token)) {
+        body += " ";
+      }
+
+      if (token.type === "STRING") {
+        body += JSON.stringify(token.value);
+      } else {
+        body += token.value;
+      }
+      this.consume();
+    }
+
+    return body.trim();
+  }
+
+  parseExpression(): string {
+    let expr = "";
+    let parenDepth = 0;
+    let braceDepth = 0;
+    let bracketDepth = 0;
+
+    while (this.peek()) {
+      const token = this.peek();
+
+      if (parenDepth === 0 && braceDepth === 0 && bracketDepth === 0) {
+        if (
+          token?.type === "SEMI" ||
+          token?.type === "RBRACE" ||
+          token?.type === "COMMA"
+        ) {
+          break;
+        }
+        if (token?.type === "IDENT" && this.peekAheadIs("EQUALS")) {
+          break;
+        }
+      }
+
+      if (token?.type === "LPAREN") parenDepth++;
+      if (token?.type === "RPAREN") parenDepth--;
+      if (token?.type === "LBRACE") braceDepth++;
+      if (token?.type === "RBRACE") braceDepth--;
+      if (token?.type === "LBRACKET") bracketDepth++;
+      if (token?.type === "RBRACKET") bracketDepth--;
+
+      if (token) {
+        if (this._shouldInsertSpace(expr, token)) {
+          expr += " ";
+        }
+        if (token.type === "STRING") {
+          expr += JSON.stringify(token.value);
+        } else {
+          expr += token.value;
+        }
+        this.consume();
+      }
+    }
+
+    return expr.trim();
   }
 
   parseNode(): ASTNode {
@@ -166,7 +258,18 @@ export class Parser {
     }
     const name = this.consume().value;
 
-    const modifiers = this.check("LPAREN") ? this.parseModifiers() : [];
+    const modifiers: Modifier[] = [];
+
+    while (this.check("LPAREN") || this.check("AT")) {
+      if (this.check("LPAREN")) {
+        modifiers.push(...this.parseModifiers());
+      }
+
+      if (this.check("AT")) {
+        this.consume(); // consume @
+        modifiers.push(parseInlineModifier(this));
+      }
+    }
 
     if (this.check("COLON")) {
       this.consume();
@@ -177,17 +280,27 @@ export class Parser {
       }
 
       const valToken = this.peek();
-      if (
-        !valToken ||
-        (valToken.type !== "IDENT" && valToken.type !== "STRING")
-      ) {
+      if (!valToken) {
         throw this.errorAt(
-          `Expected value after ':' but got ${valToken?.type || "end of input"}`,
-          valToken,
+          `Expected value after ':' but got end of input`,
+          this.tokens[this.tokens.length - 1],
         );
       }
-      const value = this.consume().value;
-      return { type: "inline", name, modifiers, value };
+
+      if (valToken.type === "STRING" || valToken.type === "INTERP_START") {
+        const value = this.parseInterpolatedValue();
+        return { type: "inline", name, modifiers, value };
+      }
+
+      if (valToken.type === "IDENT") {
+        const value = this.consume().value;
+        return { type: "inline", name, modifiers, value };
+      }
+
+      throw this.errorAt(
+        `Expected value after ':' but got ${valToken.type || "end of input"}`,
+        valToken,
+      );
     }
 
     if (this.check("LBRACKET")) {
@@ -221,7 +334,7 @@ export class Parser {
   }
 
   parseModifiers(): Modifier[] {
-    this.consume();
+    this.consume(); // consume (
     const modifiers: Modifier[] = [];
 
     while (!this.check("RPAREN")) {
@@ -229,6 +342,56 @@ export class Parser {
         throw this.errorAt(
           "Unexpected end of input, expected ')'",
           this.tokens[this.tokens.length - 1],
+        );
+      }
+
+      if (this.check("AT")) {
+        const atToken = this.consume();
+        const nameToken = this.expect("IDENT");
+
+        if (nameToken.value === "on") {
+          this.expect("COLON");
+          const eventToken = this.expect("IDENT");
+          const event = eventToken.value;
+
+          let handler: string;
+
+          if (this.check("LBRACE")) {
+            this.consume();
+            handler = this.parseBlockBody();
+            this.expect("RBRACE");
+          } else {
+            throw this.errorAt(
+              "Event handlers must use block syntax: @on:click { ... }",
+              this.peek(),
+            );
+          }
+
+          modifiers.push({
+            type: "event",
+            event,
+            handler,
+          });
+          continue;
+        }
+
+        if (nameToken.value === "bind") {
+          this.expect("EQUALS");
+          const signal = this.check("STRING")
+            ? this.consume().value
+            : this.expect("IDENT").value;
+
+          modifiers.push({
+            type: "atcode",
+            name: "bind",
+            body: signal,
+          });
+          continue;
+        }
+
+        throw this.errorAt(
+          `Atcode @${nameToken.value} not yet supported in modifiers`,
+          nameToken,
         );
       }
 
@@ -284,6 +447,36 @@ export class Parser {
     this.consume();
     return { type: "list", items };
   }
+
+  parseInterpolatedValue(): string | InterpolatedText {
+    const parts: InterpolatedTextPart[] = [];
+
+    while (this.check("STRING") || this.check("INTERP_START")) {
+      if (this.check("STRING")) {
+        const text = this.consume().value;
+        if (text) {
+          parts.push({ type: "text", value: text });
+        }
+      }
+
+      if (this.check("INTERP_START")) {
+        this.consume();
+        const expr = this.expect("EXPR").value;
+        parts.push({ type: "expr", value: expr });
+        this.expect("INTERP_END");
+      }
+    }
+
+    if (parts.length === 0) {
+      return "";
+    }
+
+    if (parts.length === 1 && parts[0].type === "text") {
+      return parts[0].value;
+    }
+
+    return { type: "interpolated", parts };
+  }
 }
 
 function stripComments(input: string): string {
@@ -295,7 +488,7 @@ function stripComments(input: string): string {
       const hasNewline =
         input.indexOf("\n", i + 2) !== -1 || input.indexOf("\r", i + 2) !== -1;
       if (!hasNewline) {
-        // Not a real comment (might be in a string like URL) - keep it
+        // Not a real comment (might be in a string like URL), keep it
         result += input[i];
         i++;
         continue;
@@ -323,6 +516,21 @@ function stripComments(input: string): string {
 }
 
 export function parseSakko(input: string): RootNode {
+  const trimmed = input.trim();
+
+  // Auto-wrap input that doesn't start with '<' - treat as component body
+  if (trimmed && !trimmed.startsWith("<")) {
+    // We use a reserved sentinel name to avoid collisions with user components.
+    // This "__sakko_wrapper__" sentinel flows into compiled artifacts as:
+    // - CSS class: "__sakko_wrapper__"
+    // - Component name: "SakkoWrapper" (via toPascalCase)
+    // - Any component ID hashed from "__sakko_wrapper__"
+    input = `<__sakko_wrapper__ {\n${trimmed}\n}>`;
+  }
+
+  // Debug: log the wrapped input
+  // console.log("Parsing:", input);
+
   const tokens = tokenize(input);
   if (tokens.length === 0) {
     parserError("Empty input", { suggestion: "Add some content to parse" });

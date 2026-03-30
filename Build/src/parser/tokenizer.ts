@@ -13,7 +13,16 @@ export type TokenType =
   | "SEMI"
   | "COMMA"
   | "IDENT"
-  | "STRING";
+  | "STRING"
+  | "AT"
+  | "EQUALS"
+  | "INTERP_START"
+  | "INTERP_END"
+  | "EXPR"
+  | "DOT"
+  | "PLUS"
+  | "MINUS"
+  | "STAR";
 
 export type Token = {
   type: TokenType;
@@ -21,6 +30,21 @@ export type Token = {
   line: number;
   col: number;
 };
+
+/** Map a single escape character to its runtime value. */
+function handleEscapeSequence(esc: string): string {
+  switch (esc) {
+    case 'n': return '\n';
+    case 't': return '\t';
+    case 'r': return '\r';
+    case '"': return '"';
+    case "'": return "'";
+    case '`': return '`';
+    case '\\': return '\\';
+    case '$': return '$';
+    default: return '\\' + esc; // preserve unknown escapes as-is
+  }
+}
 
 export function tokenize(input: string): Token[] {
   const tokens: Token[] = [];
@@ -80,6 +104,12 @@ export function tokenize(input: string): Token[] {
       ":": "COLON",
       ";": "SEMI",
       ",": "COMMA",
+      "@": "AT",
+      "=": "EQUALS",
+      ".": "DOT",
+      "+": "PLUS",
+      "-": "MINUS",
+      "*": "STAR",
     };
 
     if (SYMBOLS[ch]) {
@@ -93,8 +123,43 @@ export function tokenize(input: string): Token[] {
       const startCol = col;
       i++;
       col++;
+
+      // Scan only the substring up to the next unescaped closing quote
+      // so we don't accidentally detect braces outside this literal.
+      let scanEnd = i;
+      while (scanEnd < input.length && input[scanEnd] !== '"') {
+        if (input[scanEnd] === '\\' && scanEnd + 1 < input.length) {
+          scanEnd += 2; // skip the escaped character
+        } else {
+          scanEnd++;
+        }
+      }
+      const literalContent = input.slice(i, scanEnd);
+      const hasInterpolation = /\{[\s\S]*?\}/.test(literalContent);
+
+      if (hasInterpolation) {
+        const result = tokenizeStringWithInterpolation(
+          input,
+          i,
+          line,
+          col,
+          startCol,
+        );
+        tokens.push(...result.tokens);
+        i = result.endIndex + 1;
+        line = result.endLine;
+        col = result.endCol + 1;
+        continue;
+      }
+
       let str = "";
       while (i < input.length && input[i] !== '"') {
+        if (input[i] === "\\" && i + 1 < input.length) {
+          i++; col++;
+          str += handleEscapeSequence(input[i]);
+          i++; col++;
+          continue;
+        }
         if (input[i] === "\n") {
           line++;
           col = 1;
@@ -141,4 +206,133 @@ export function tokenize(input: string): Token[] {
   }
 
   return tokens;
+}
+
+function tokenizeStringWithInterpolation(
+  input: string,
+  startIndex: number,
+  line: number,
+  col: number,
+  originalStartCol: number,
+): { tokens: Token[]; endIndex: number; endLine: number; endCol: number } {
+  const tokens: Token[] = [];
+  let i = startIndex;
+  let currentLine = line;
+  let currentCol = col;
+  let textBuffer = "";
+  let textStartCol = currentCol;
+
+  while (i < input.length && input[i] !== '"') {
+    if (input[i] === "{") {
+      if (textBuffer) {
+        tokens.push({
+          type: "STRING",
+          value: textBuffer,
+          line: currentLine,
+          col: textStartCol,
+        });
+        textBuffer = "";
+      }
+
+      tokens.push({
+        type: "INTERP_START",
+        value: "{",
+        line: currentLine,
+        col: currentCol,
+      });
+      i++;
+      currentCol++;
+
+      let expr = "";
+      let braceDepth = 1;
+      const exprStartCol = currentCol;
+
+      while (i < input.length && braceDepth > 0) {
+        if (input[i] === "{") braceDepth++;
+        if (input[i] === "}") braceDepth--;
+
+        if (braceDepth > 0) {
+          expr += input[i];
+        }
+
+        if (input[i] === "\n") {
+          currentLine++;
+          currentCol = 1;
+        } else {
+          currentCol++;
+        }
+        i++;
+      }
+
+      if (braceDepth > 0) {
+        tokenizerError("Unterminated interpolation expression", {
+          position: i,
+          line: currentLine,
+          column: exprStartCol,
+          suggestion: "Add a closing brace '}'",
+        });
+        throw new Error(`Unterminated interpolation expression at line ${currentLine}, col ${exprStartCol}`);
+      }
+
+      tokens.push({
+        type: "EXPR",
+        value: expr.trim(),
+        line: currentLine,
+        col: exprStartCol,
+      });
+      tokens.push({
+        type: "INTERP_END",
+        value: "}",
+        line: currentLine,
+        col: currentCol - 1,
+      });
+
+      textStartCol = currentCol;
+      continue;
+    }
+
+    // Handle escape sequences inside interpolated strings
+    if (input[i] === "\\" && i + 1 < input.length) {
+      i++; currentCol++;
+      textBuffer += handleEscapeSequence(input[i]);
+      currentCol++;
+      i++;
+      continue;
+    }
+
+    textBuffer += input[i];
+    if (input[i] === "\n") {
+      currentLine++;
+      currentCol = 1;
+    } else {
+      currentCol++;
+    }
+    i++;
+  }
+
+  if (i >= input.length) {
+    tokenizerError("Unterminated string", {
+      position: i,
+      line: currentLine,
+      column: originalStartCol,
+      suggestion: "Add a closing quote \""
+    });
+    throw new Error(`Unterminated string at line ${currentLine}, col ${originalStartCol}`);
+  }
+
+  if (textBuffer.length > 0 || tokens.length === 0) {
+    tokens.push({
+      type: "STRING",
+      value: textBuffer,
+      line: currentLine,
+      col: textStartCol,
+    });
+  }
+
+  return {
+    tokens,
+    endIndex: i,
+    endLine: currentLine,
+    endCol: currentCol,
+  };
 }
