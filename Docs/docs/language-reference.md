@@ -29,6 +29,8 @@ Every `.sako` file has one root block wrapped in angle brackets:
 ```
 
 > **Note:** The `compileSakko()` function auto-wraps source that is missing `<>` brackets, so both `<card { ... }>` and `card { ... }` work when using the API. However, always have the habit to add `<>` brackets.
+>
+> When you omit the angle brackets, the parser uses an internal sentinel name (`__sakko_wrapper__`) which appears in compiled output as the CSS class `__sakko_wrapper__`, component name `SakkoWrapper`, and any hashed IDs derived from that name. Always prefer explicit `<tagname { ... }>` syntax to avoid these internal names in your artifacts.
 
 **Example:**
 

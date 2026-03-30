@@ -31,6 +31,21 @@ export type Token = {
   col: number;
 };
 
+/** Map a single escape character to its runtime value. */
+function handleEscapeSequence(esc: string): string {
+  switch (esc) {
+    case 'n': return '\n';
+    case 't': return '\t';
+    case 'r': return '\r';
+    case '"': return '"';
+    case "'": return "'";
+    case '`': return '`';
+    case '\\': return '\\';
+    case '$': return '$';
+    default: return '\\' + esc; // preserve unknown escapes as-is
+  }
+}
+
 export function tokenize(input: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;
@@ -109,8 +124,18 @@ export function tokenize(input: string): Token[] {
       i++;
       col++;
 
-      const remaining = input.slice(i);
-      const hasInterpolation = /\{[\s\S]*?\}/.test(remaining);
+      // Scan only the substring up to the next unescaped closing quote
+      // so we don't accidentally detect braces outside this literal.
+      let scanEnd = i;
+      while (scanEnd < input.length && input[scanEnd] !== '"') {
+        if (input[scanEnd] === '\\' && scanEnd + 1 < input.length) {
+          scanEnd += 2; // skip the escaped character
+        } else {
+          scanEnd++;
+        }
+      }
+      const literalContent = input.slice(i, scanEnd);
+      const hasInterpolation = /\{[\s\S]*?\}/.test(literalContent);
 
       if (hasInterpolation) {
         const result = tokenizeStringWithInterpolation(
@@ -129,18 +154,9 @@ export function tokenize(input: string): Token[] {
 
       let str = "";
       while (i < input.length && input[i] !== '"') {
-        // Handle escape sequences
         if (input[i] === "\\" && i + 1 < input.length) {
           i++; col++;
-          const esc = input[i];
-          if (esc === 'n') str += '\n';
-          else if (esc === 't') str += '\t';
-          else if (esc === '"') str += '"';
-          else if (esc === "'") str += "'";
-          else if (esc === '`') str += '`';
-          else if (esc === '\\') str += '\\';
-          else if (esc === '$') str += '$';
-          else str += '\\' + esc; // preserve unknown escapes as-is
+          str += handleEscapeSequence(input[i]);
           i++; col++;
           continue;
         }
@@ -278,15 +294,7 @@ function tokenizeStringWithInterpolation(
     // Handle escape sequences inside interpolated strings
     if (input[i] === "\\" && i + 1 < input.length) {
       i++; currentCol++;
-      const esc = input[i];
-      if (esc === 'n') textBuffer += '\n';
-      else if (esc === 't') textBuffer += '\t';
-      else if (esc === '"') textBuffer += '"';
-      else if (esc === "'") textBuffer += "'";
-      else if (esc === '`') textBuffer += '`';
-      else if (esc === '\\') textBuffer += '\\';
-      else if (esc === '$') textBuffer += '$';
-      else textBuffer += '\\' + esc;
+      textBuffer += handleEscapeSequence(input[i]);
       currentCol++;
       i++;
       continue;

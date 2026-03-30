@@ -17,9 +17,19 @@ export function registerSakkoComponent(ast: RootNode): void {
 
   // Transform ESM to simple CJS-like eval format
   const evalCode = componentCode
+    // import { a, b } from 'mod' → const {a, b} = require('mod');
     .replace(/import\s+{([\s\S]*?)}\s+from\s+['"]([^'"]+)['"];?/g, (match, p1, p2) => {
       const cleaned = p1.replace(/\s+/g, ' ').trim();
       return `const {${cleaned}} = require('${p2}');`;
+    })
+    // import * as name from 'mod' → const name = require('mod');
+    .replace(/import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"];?/g, (_m, name, mod) =>
+      `const ${name} = require('${mod}');`
+    )
+    // export { foo, bar } → (append to module.exports)
+    .replace(/export\s+\{([\s\S]*?)\};?/g, (_m, specifiers) => {
+      const names = specifiers.split(',').map((s: string) => s.trim()).filter(Boolean);
+      return names.map((n: string) => `module.exports.${n} = ${n};`).join('\n');
     })
     .replace(/export\s+default\s+function/g, 'module.exports = function')
     .replace(/export\s+default\s+/g, 'module.exports = ')

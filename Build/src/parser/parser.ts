@@ -520,7 +520,11 @@ export function parseSakko(input: string): RootNode {
 
   // Auto-wrap input that doesn't start with '<' - treat as component body
   if (trimmed && !trimmed.startsWith("<")) {
-    // We use a reserved sentinel name to avoid collisions with user components
+    // We use a reserved sentinel name to avoid collisions with user components.
+    // This "__sakko_wrapper__" sentinel flows into compiled artifacts as:
+    // - CSS class: "__sakko_wrapper__"
+    // - Component name: "SakkoWrapper" (via toPascalCase)
+    // - Any component ID hashed from "__sakko_wrapper__"
     input = `<__sakko_wrapper__ {\n${trimmed}\n}>`;
   }
 

@@ -184,7 +184,7 @@ export function compileClassModifier(
   return `effect(() => {
     const classVal = ${exprWithGets};
     const el = ${el};
-    const prevClasses = el.__sakko_reactive_classes || new Set();
+    const prevClasses = el[REACTIVE_CLASSES] || new Set();
     const nextClasses = new Set();
     
     if (typeof classVal === 'string') {
@@ -205,7 +205,7 @@ export function compileClassModifier(
     nextClasses.forEach(c => {
       if (!prevClasses.has(c)) el.classList.add(c);
     });
-    el.__sakko_reactive_classes = nextClasses;
+    el[REACTIVE_CLASSES] = nextClasses;
   });`;
 }
 

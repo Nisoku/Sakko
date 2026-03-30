@@ -48,4 +48,38 @@ describe("Tokenizer - Atcode Extensions", () => {
     const tokens = tokenize("@");
     expect(tokens[0].type).toBe("AT");
   });
+
+  // --- Edge cases ---
+
+  test("unterminated interpolated string throws", () => {
+    // Missing closing quote after the interpolation
+    expect(() => tokenize('"Hello {name')).toThrow();
+  });
+
+  test("escaped brace does not produce interpolation tokens", () => {
+    // \{ is an unknown escape → stored as \{ in the text, no INTERP_START emitted
+    const tokens = tokenize('"Hello \\{not interpolation\\}"');
+    const types = tokens.map(t => t.type);
+    expect(types).not.toContain("INTERP_START");
+    expect(types).not.toContain("EXPR");
+    expect(types).not.toContain("INTERP_END");
+    const str = tokens.find(t => t.type === "STRING");
+    // The value should contain the literal brace characters (backslash preserved)
+    expect(str?.value).toContain("{");
+  });
+
+  test("empty interpolation produces empty EXPR token", () => {
+    const tokens = tokenize('"{}"');
+    const expr = tokens.find(t => t.type === "EXPR");
+    expect(expr).toBeDefined();
+    expect(expr?.value).toBe("");
+  });
+
+  test("adjacent interpolations produce two EXPR tokens", () => {
+    const tokens = tokenize('"{a}{b}"');
+    const exprs = tokens.filter(t => t.type === "EXPR");
+    expect(exprs).toHaveLength(2);
+    expect(exprs[0].value).toBe("a");
+    expect(exprs[1].value).toBe("b");
+  });
 });

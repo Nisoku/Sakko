@@ -121,7 +121,7 @@ ${renderCode}
   return signals ? (signals[signalName] || null) : null;
 }`;
 
-  return formatCode([imports, "const instanceSignals = new Map();", "", componentFn, "", getSignalFn].join("\n\n"));
+  return formatCode([imports, "const instanceSignals = new Map();\nconst REACTIVE_CLASSES = Symbol('sakko.reactiveClasses');", "", componentFn, "", getSignalFn].join("\n\n"));
 }
 
 function compileChildren(children: ASTNode[], ctx: ComponentContext, parentVar: string = "root"): string {
