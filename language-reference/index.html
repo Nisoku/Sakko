@@ -197,6 +197,7 @@
 </code></pre>
 <blockquote>
 <p><strong>Note:</strong> The <code>compileSakko()</code> function auto-wraps source that is missing <code>&lt;&gt;</code> brackets, so both <code>&lt;card { ... }&gt;</code> and <code>card { ... }</code> work when using the API. However, always have the habit to add <code>&lt;&gt;</code> brackets.</p>
+<p>When you omit the angle brackets, the parser uses an internal sentinel name (<code>__sakko_wrapper__</code>) which appears in compiled output as the CSS class <code>__sakko_wrapper__</code>, component name <code>SakkoWrapper</code>, and any hashed IDs derived from that name. Always prefer explicit <code>&lt;tagname { ... }&gt;</code> syntax to avoid these internal names in your artifacts.</p>
 </blockquote>
 <p><strong>Example:</strong></p>
 <pre class="hljs"><code>&lt;page {
@@ -360,6 +361,68 @@ row {button: A, button: B}
   text: Content // Inline comments too
 }&gt;
 </code></pre>
+<hr>
+<h2 id="reactivity">Reactivity</h2>
+<p>Sakko supports inline reactivity through atcodes. These compile to Sairin signals for reactive UI.</p>
+<h3 id="state">State</h3>
+<p>Declare reactive state with <code>@state</code>:</p>
+<pre class="hljs"><code>&lt;counter {
+  @state {
+    count = 0
+    step = 1
+  }
+  
+  text: &quot;Count: {count}&quot;
+}&gt;
+</code></pre>
+<p>The <code>@state</code> block declares variables that can be read and written. Values are initialized with JavaScript expressions.</p>
+<h3 id="derived-state">Derived State</h3>
+<p>Compute derived values with <code>@derived</code>:</p>
+<pre class="hljs"><code>&lt;app {
+  @state { items = [] }
+  @derived {
+    count = items.length
+    isEmpty = items.length === 0
+  }
+  text: &quot;{count} items&quot;
+}&gt;
+</code></pre>
+<p>Derived values automatically update when their dependencies change.</p>
+<h3 id="effects">Effects</h3>
+<p>Run side effects with <code>@effect</code>:</p>
+<pre class="hljs"><code>&lt;app {
+  @state { count = 0 }
+  
+  @effect {
+    console.log(&quot;Count changed:&quot;, count)
+    document.title = `Count: ${count}`
+  }
+  
+  button @on:click { count++ }: &quot;Increment&quot;
+}&gt;
+</code></pre>
+<p>Effects run when any referenced state changes.</p>
+<h3 id="event-handlers">Event Handlers</h3>
+<p>Handle DOM events with <code>@on:event</code>:</p>
+<pre class="hljs"><code>button @on:click { count++ }: &quot;Click&quot;
+input @on:input { value = e.target.value }: &quot;&quot;
+div @on:mouseenter { isHovered = true }: &quot;Hover&quot;
+</code></pre>
+<p>The handler body is JavaScript. Reference state directly and use <code>.set()</code> to update.</p>
+<h3 id="two-way-binding">Two-way Binding</h3>
+<p>Bind input elements with <code>@bind</code>:</p>
+<pre class="hljs"><code>&lt;input @bind=&quot;username&quot;: &quot;&quot;&gt;
+&lt;checkbox @bind=&quot;checked&quot;: &quot;&quot;&gt;
+&lt;select @bind=&quot;value&quot;: &quot;&quot;&gt;
+</code></pre>
+<p>The bound signal syncs automatically with the input value.</p>
+<h3 id="interpolation">Interpolation</h3>
+<p>Use <code>{expression}</code> in text values:</p>
+<pre class="hljs"><code>text: &quot;Hello, {name}!&quot;
+text: &quot;{a} + {b} = {a + b}&quot;
+text: &quot;Items: {items.length}&quot;
+</code></pre>
+<p>Interpolation compiles to effects that update the text when dependencies change.</p>
 <hr>
 <h2 id="complete-example">Complete Example</h2>
 <pre class="hljs"><code>&lt;player {
@@ -530,6 +593,34 @@ row {button: A, button: B}
       
         <li class="toc-item toc-level-2">
           <a href="#comments" class="toc-link">Comments</a>
+        </li>
+      
+        <li class="toc-item toc-level-2">
+          <a href="#reactivity" class="toc-link">Reactivity</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#state" class="toc-link">State</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#derived-state" class="toc-link">Derived State</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#effects" class="toc-link">Effects</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#event-handlers" class="toc-link">Event Handlers</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#two-way-binding" class="toc-link">Two-way Binding</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#interpolation" class="toc-link">Interpolation</a>
         </li>
       
         <li class="toc-item toc-level-2">

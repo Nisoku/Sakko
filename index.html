@@ -218,6 +218,52 @@
 <td><strong>Zero deps</strong></td>
 <td>Pure TypeScript, no external dependencies</td>
 </tr>
+<tr>
+<td><strong>Reactivity</strong></td>
+<td interpolation="">@state, @effect, @derived, @on:event, @bind,</td>
+</tr>
+</tbody>
+</table>
+</div><h2 id="reactivity">Reactivity</h2>
+<p>Sakko compiles to Sairin signals for reactive UI:</p>
+<pre class="hljs"><code>&lt;counter {
+  @state { count = 0 }
+  button @on:click { count++ }: &quot;+&quot;
+  text: &quot;Count: {count}&quot;
+}&gt;
+</code></pre>
+<div class="table-wrapper"><table>
+<thead>
+<tr>
+<th>Atcode</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>@state { }</code></td>
+<td>Declare reactive state</td>
+</tr>
+<tr>
+<td><code>@effect { }</code></td>
+<td>Side effects that track dependencies</td>
+</tr>
+<tr>
+<td><code>@derived { }</code></td>
+<td>Computed values</td>
+</tr>
+<tr>
+<td><code>@on:event { }</code></td>
+<td>Event handlers</td>
+</tr>
+<tr>
+<td><code>@bind=&quot;signal&quot;</code></td>
+<td>Two-way input binding</td>
+</tr>
+<tr>
+<td><code>{expr}</code></td>
+<td>Template interpolation</td>
+</tr>
 </tbody>
 </table>
 </div><h2 id="documentation">Documentation</h2>
@@ -274,6 +320,10 @@
       
         <li class="toc-item toc-level-2">
           <a href="#what-you-get" class="toc-link">What you get</a>
+        </li>
+      
+        <li class="toc-item toc-level-2">
+          <a href="#reactivity" class="toc-link">Reactivity</a>
         </li>
       
         <li class="toc-item toc-level-2">

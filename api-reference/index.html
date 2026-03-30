@@ -220,6 +220,7 @@
   <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;root&#x27;</span>;
   <span class="hljs-attr">name</span>: <span class="hljs-built_in">string</span>;
   <span class="hljs-attr">modifiers</span>?: <span class="hljs-title class_">Modifier</span>[];
+  <span class="hljs-attr">declarations</span>?: <span class="hljs-title class_">AtcodeDeclaration</span>[];
   <span class="hljs-attr">children</span>: <span class="hljs-title class_">ASTNode</span>[];
 };
 
@@ -234,7 +235,7 @@
   <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;inline&#x27;</span>;
   <span class="hljs-attr">name</span>: <span class="hljs-built_in">string</span>;
   <span class="hljs-attr">modifiers</span>?: <span class="hljs-title class_">Modifier</span>[];
-  <span class="hljs-attr">value</span>: <span class="hljs-built_in">string</span>;
+  <span class="hljs-attr">value</span>: <span class="hljs-built_in">string</span> | <span class="hljs-title class_">InterpolatedText</span>;
 };
 
 <span class="hljs-keyword">type</span> <span class="hljs-title class_">ListNode</span> = {
@@ -247,7 +248,39 @@
 <h3 id="modifier-types">Modifier Types</h3>
 <pre class="hljs"><code><span class="hljs-keyword">type</span> <span class="hljs-title class_">Modifier</span> =
   | { <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;flag&#x27;</span>; <span class="hljs-attr">value</span>: <span class="hljs-built_in">string</span> }
-  | { <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;pair&#x27;</span>; <span class="hljs-attr">key</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">value</span>: <span class="hljs-built_in">string</span> };
+  | { <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;pair&#x27;</span>; <span class="hljs-attr">key</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">value</span>: <span class="hljs-built_in">string</span> }
+  | { <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;event&#x27;</span>; <span class="hljs-attr">event</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">handler</span>: <span class="hljs-built_in">string</span> }
+  | { <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;atcode&#x27;</span>; <span class="hljs-attr">name</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">body</span>: <span class="hljs-built_in">string</span> };
+</code></pre>
+<h3 id="atcode-declaration-types">Atcode Declaration Types</h3>
+<pre class="hljs"><code><span class="hljs-keyword">type</span> <span class="hljs-title class_">AtcodeDeclaration</span> =
+  | {
+      <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;state&#x27;</span>;
+      <span class="hljs-attr">declarations</span>: <span class="hljs-title class_">Array</span>&lt;{ <span class="hljs-attr">name</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">value</span>: <span class="hljs-built_in">string</span> }&gt;;
+      <span class="hljs-attr">line</span>: <span class="hljs-built_in">number</span>;
+      <span class="hljs-attr">col</span>: <span class="hljs-built_in">number</span>;
+    }
+  | {
+      <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;effect&#x27;</span>;
+      <span class="hljs-attr">body</span>: <span class="hljs-built_in">string</span>;
+      <span class="hljs-attr">line</span>: <span class="hljs-built_in">number</span>;
+      <span class="hljs-attr">col</span>: <span class="hljs-built_in">number</span>;
+    }
+  | {
+      <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;derived&#x27;</span>;
+      <span class="hljs-attr">declarations</span>: <span class="hljs-title class_">Array</span>&lt;{ <span class="hljs-attr">name</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">expr</span>: <span class="hljs-built_in">string</span> }&gt;;
+      <span class="hljs-attr">line</span>: <span class="hljs-built_in">number</span>;
+      <span class="hljs-attr">col</span>: <span class="hljs-built_in">number</span>;
+    };
+</code></pre>
+<h3 id="interpolated-text">Interpolated Text</h3>
+<pre class="hljs"><code><span class="hljs-keyword">type</span> <span class="hljs-title class_">InterpolatedText</span> = {
+  <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;interpolated&#x27;</span>;
+  <span class="hljs-attr">parts</span>: <span class="hljs-title class_">Array</span>&lt;
+    | { <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;text&#x27;</span>; <span class="hljs-attr">value</span>: <span class="hljs-built_in">string</span> }
+    | { <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;expr&#x27;</span>; <span class="hljs-attr">value</span>: <span class="hljs-built_in">string</span> }
+  &gt;;
+};
 </code></pre>
 <h3 id="token-type">Token Type</h3>
 <pre class="hljs"><code><span class="hljs-keyword">type</span> <span class="hljs-title class_">Token</span> = {
@@ -256,6 +289,35 @@
   <span class="hljs-attr">line</span>: <span class="hljs-built_in">number</span>;
   <span class="hljs-attr">col</span>: <span class="hljs-built_in">number</span>;
 };
+</code></pre>
+<hr>
+<h2 id="compiler">Compiler</h2>
+<h3 id="compilecomponentroot-rootnode-string"><code>compileComponent(root: RootNode): string</code></h3>
+<p>Compile a Sakko AST to JavaScript with Sairin signals.</p>
+<pre class="hljs"><code><span class="hljs-keyword">import</span> { parseSakko, compileComponent } <span class="hljs-keyword">from</span> <span class="hljs-string">&#x27;@nisoku/sakko&#x27;</span>;
+
+<span class="hljs-keyword">const</span> ast = <span class="hljs-title function_">parseSakko</span>(<span class="hljs-string">&#x27;&lt;counter { @state { count = 0 } }&gt;&#x27;</span>);
+<span class="hljs-keyword">const</span> js = <span class="hljs-title function_">compileComponent</span>(ast);
+<span class="hljs-comment">// Returns: import { signal } from &#x27;@nisoku/sairin&#x27;; ...</span>
+</code></pre>
+<hr>
+<h2 id="runtime">Runtime</h2>
+<h3 id="registersakkocomponentast-rootnode-void"><code>registerSakkoComponent(ast: RootNode): void</code></h3>
+<p>Register a component as a custom element.</p>
+<pre class="hljs"><code><span class="hljs-keyword">import</span> { parseSakko, registerSakkoComponent } <span class="hljs-keyword">from</span> <span class="hljs-string">&#x27;@nisoku/sakko&#x27;</span>;
+
+<span class="hljs-keyword">const</span> ast = <span class="hljs-title function_">parseSakko</span>(<span class="hljs-string">&#x27;&lt;my-counter { @state { count = 0 } }&gt;&#x27;</span>);
+<span class="hljs-title function_">registerSakkoComponent</span>(ast);
+<span class="hljs-comment">// Now &lt;sakko-my-counter&gt; is available as a web component</span>
+</code></pre>
+<h3 id="getcomponentname-string-registeredcomponent-undefined"><code>getComponent(name: string): RegisteredComponent | undefined</code></h3>
+<p>Get a registered component.</p>
+<pre class="hljs"><code><span class="hljs-keyword">import</span> { getComponent } <span class="hljs-keyword">from</span> <span class="hljs-string">&#x27;@nisoku/sakko&#x27;</span>;
+
+<span class="hljs-keyword">const</span> comp = <span class="hljs-title function_">getComponent</span>(<span class="hljs-string">&#x27;my-counter&#x27;</span>);
+<span class="hljs-keyword">if</span> (comp) {
+  <span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(comp.<span class="hljs-property">source</span>); <span class="hljs-comment">// The compiled JS source</span>
+}
 </code></pre>
 
 
@@ -311,7 +373,35 @@
         </li>
       
         <li class="toc-item toc-level-3">
+          <a href="#atcode-declaration-types" class="toc-link">Atcode Declaration Types</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#interpolated-text" class="toc-link">Interpolated Text</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
           <a href="#token-type" class="toc-link">Token Type</a>
+        </li>
+      
+        <li class="toc-item toc-level-2">
+          <a href="#compiler" class="toc-link">Compiler</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#compilecomponentroot-rootnode-string" class="toc-link">compileComponent(root: RootNode): string</a>
+        </li>
+      
+        <li class="toc-item toc-level-2">
+          <a href="#runtime" class="toc-link">Runtime</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#registersakkocomponentast-rootnode-void" class="toc-link">registerSakkoComponent(ast: RootNode): void</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#getcomponentname-string-registeredcomponent-undefined" class="toc-link">getComponent(name: string): RegisteredComponent | undefined</a>
         </li>
       
     </ul>
