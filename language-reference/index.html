@@ -416,6 +416,19 @@ div @on:mouseenter { isHovered = true }: &quot;Hover&quot;
 &lt;select @bind=&quot;value&quot;: &quot;&quot;&gt;
 </code></pre>
 <p>The bound signal syncs automatically with the input value.</p>
+<h3 id="reactive-classes">Reactive Classes</h3>
+<p>Add dynamic CSS classes with <code>@class</code>:</p>
+<pre class="hljs"><code>&lt;div @class=&quot;theme&quot;&gt;
+  content
+&lt;/div&gt;
+</code></pre>
+<p>The <code>@class</code> directive accepts:</p>
+<ul>
+<li>A string: <code>text: &quot;bold&quot;</code></li>
+<li>An array: <code>text: [&quot;bold&quot;, &quot;large&quot;]</code></li>
+<li>An object: <code>text: { active: isActive, disabled: isDisabled }</code></li>
+</ul>
+<p>Class changes are reflected immediately on the element.</p>
 <h3 id="interpolation">Interpolation</h3>
 <p>Use <code>{expression}</code> in text values:</p>
 <pre class="hljs"><code>text: &quot;Hello, {name}!&quot;
@@ -617,6 +630,10 @@ text: &quot;Items: {items.length}&quot;
       
         <li class="toc-item toc-level-3">
           <a href="#two-way-binding" class="toc-link">Two-way Binding</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#reactive-classes" class="toc-link">Reactive Classes</a>
         </li>
       
         <li class="toc-item toc-level-3">

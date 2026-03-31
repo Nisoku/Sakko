@@ -213,6 +213,13 @@
 <span class="hljs-comment">//   { type: &quot;IDENT&quot;, value: &quot;Save&quot; }</span>
 <span class="hljs-comment">// ]</span>
 </code></pre>
+<p><strong>Token Types:</strong></p>
+<ul>
+<li>Identifiers and symbols: <code>IDENT</code>, <code>LT</code>, <code>GT</code>, <code>LBRACE</code>, <code>RBRACE</code>, <code>LPAREN</code>, <code>RPAREN</code>, <code>LBRACKET</code>, <code>RBRACKET</code>, <code>COLON</code>, <code>SEMI</code>, <code>COMMA</code>, <code>DOT</code>, <code>PLUS</code>, <code>MINUS</code>, <code>STAR</code>, <code>AT</code>, <code>EQUALS</code></li>
+<li>String literals: <code>STRING</code></li>
+<li>Interpolation tokens: <code>INTERP_START</code>, <code>INTERP_END</code>, <code>EXPR</code></li>
+</ul>
+<p><strong>Throws:</strong> <code>Error</code> for unterminated strings or invalid syntax.</p>
 <hr>
 <h2 id="types">Types</h2>
 <h3 id="ast-node-types">AST Node Types</h3>
