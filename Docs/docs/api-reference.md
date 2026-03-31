@@ -48,6 +48,13 @@ const tokens = tokenize('button(accent): Save');
 // ]
 ```
 
+**Token Types:**
+- Identifiers and symbols: `IDENT`, `LT`, `GT`, `LBRACE`, `RBRACE`, `LPAREN`, `RPAREN`, `LBRACKET`, `RBRACKET`, `COLON`, `SEMI`, `COMMA`, `DOT`, `PLUS`, `MINUS`, `STAR`, `AT`, `EQUALS`
+- String literals: `STRING`
+- Interpolation tokens: `INTERP_START`, `INTERP_END`, `EXPR`
+
+**Throws:** `Error` for unterminated strings or invalid syntax.
+
 ---
 
 ## Types

@@ -281,6 +281,23 @@ Bind input elements with `@bind`:
 
 The bound signal syncs automatically with the input value.
 
+### Reactive Classes
+
+Add dynamic CSS classes with `@class`:
+
+```sako
+<div @class="theme">
+  content
+</div>
+```
+
+The `@class` directive accepts:
+- A string: `text: "bold"`
+- An array: `text: ["bold", "large"]`
+- An object: `text: { active: isActive, disabled: isDisabled }`
+
+Class changes are reflected immediately on the element.
+
 ### Interpolation
 
 Use `{expression}` in text values:
