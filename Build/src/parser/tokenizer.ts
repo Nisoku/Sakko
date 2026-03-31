@@ -34,15 +34,24 @@ export type Token = {
 /** Map a single escape character to its runtime value. */
 function handleEscapeSequence(esc: string): string {
   switch (esc) {
-    case 'n': return '\n';
-    case 't': return '\t';
-    case 'r': return '\r';
-    case '"': return '"';
-    case "'": return "'";
-    case '`': return '`';
-    case '\\': return '\\';
-    case '$': return '$';
-    default: return '\\' + esc; // preserve unknown escapes as-is
+    case "n":
+      return "\n";
+    case "t":
+      return "\t";
+    case "r":
+      return "\r";
+    case '"':
+      return '"';
+    case "'":
+      return "'";
+    case "`":
+      return "`";
+    case "\\":
+      return "\\";
+    case "$":
+      return "$";
+    default:
+      return "\\" + esc; // preserve unknown escapes as-is
   }
 }
 
@@ -128,7 +137,7 @@ export function tokenize(input: string): Token[] {
       // so we don't accidentally detect braces outside this literal.
       let scanEnd = i;
       while (scanEnd < input.length && input[scanEnd] !== '"') {
-        if (input[scanEnd] === '\\' && scanEnd + 1 < input.length) {
+        if (input[scanEnd] === "\\" && scanEnd + 1 < input.length) {
           scanEnd += 2; // skip the escaped character
         } else {
           scanEnd++;
@@ -155,9 +164,11 @@ export function tokenize(input: string): Token[] {
       let str = "";
       while (i < input.length && input[i] !== '"') {
         if (input[i] === "\\" && i + 1 < input.length) {
-          i++; col++;
+          i++;
+          col++;
           str += handleEscapeSequence(input[i]);
-          i++; col++;
+          i++;
+          col++;
           continue;
         }
         if (input[i] === "\n") {
@@ -271,7 +282,9 @@ function tokenizeStringWithInterpolation(
           column: exprStartCol,
           suggestion: "Add a closing brace '}'",
         });
-        throw new Error(`Unterminated interpolation expression at line ${currentLine}, col ${exprStartCol}`);
+        throw new Error(
+          `Unterminated interpolation expression at line ${currentLine}, col ${exprStartCol}`,
+        );
       }
 
       tokens.push({
@@ -293,7 +306,8 @@ function tokenizeStringWithInterpolation(
 
     // Handle escape sequences inside interpolated strings
     if (input[i] === "\\" && i + 1 < input.length) {
-      i++; currentCol++;
+      i++;
+      currentCol++;
       textBuffer += handleEscapeSequence(input[i]);
       currentCol++;
       i++;
@@ -315,9 +329,11 @@ function tokenizeStringWithInterpolation(
       position: i,
       line: currentLine,
       column: originalStartCol,
-      suggestion: "Add a closing quote \""
+      suggestion: 'Add a closing quote "',
     });
-    throw new Error(`Unterminated string at line ${currentLine}, col ${originalStartCol}`);
+    throw new Error(
+      `Unterminated string at line ${currentLine}, col ${originalStartCol}`,
+    );
   }
 
   if (textBuffer.length > 0 || tokens.length === 0) {

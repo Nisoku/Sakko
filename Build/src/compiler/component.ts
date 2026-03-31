@@ -79,7 +79,11 @@ function hashString(str: string): number {
   return Math.abs(hash);
 }
 
-function generateSairinImports(mode: SairinImportMode, globalName: string, modulePath: string): string {
+function generateSairinImports(
+  mode: SairinImportMode,
+  globalName: string,
+  modulePath: string,
+): string {
   switch (mode) {
     case "global":
       return `const { signal, effect, derived, path } = ${globalName};
@@ -150,10 +154,25 @@ ${renderCode}
   instanceSignals.delete(id);
 }`;
 
-  return formatCode([imports, "const instanceSignals = new Map();\nconst REACTIVE_CLASSES = Symbol('sakko.reactiveClasses');", "", componentFn, "", getSignalFn, "", disposeFn].join("\n\n"));
+  return formatCode(
+    [
+      imports,
+      "const instanceSignals = new Map();\nconst REACTIVE_CLASSES = Symbol('sakko.reactiveClasses');",
+      "",
+      componentFn,
+      "",
+      getSignalFn,
+      "",
+      disposeFn,
+    ].join("\n\n"),
+  );
 }
 
-function compileChildren(children: ASTNode[], ctx: ComponentContext, parentVar: string = "root"): string {
+function compileChildren(
+  children: ASTNode[],
+  ctx: ComponentContext,
+  parentVar: string = "root",
+): string {
   const lines: string[] = [];
 
   for (const child of children) {
@@ -175,7 +194,11 @@ function compileChildren(children: ASTNode[], ctx: ComponentContext, parentVar: 
   return lines.join("\n\n");
 }
 
-function compileInlineNode(node: InlineNode, ctx: ComponentContext, parentVar: string): string {
+function compileInlineNode(
+  node: InlineNode,
+  ctx: ComponentContext,
+  parentVar: string,
+): string {
   const idx = nextElementId(ctx);
   const elementVar = `${node.name}${idx}`;
 
@@ -187,9 +210,13 @@ function compileInlineNode(node: InlineNode, ctx: ComponentContext, parentVar: s
 
   for (const mod of node.modifiers) {
     if (mod.type === "flag") {
-      lines.push(`${elementVar}.setAttribute(${JSON.stringify(mod.value)}, '');`);
+      lines.push(
+        `${elementVar}.setAttribute(${JSON.stringify(mod.value)}, '');`,
+      );
     } else if (mod.type === "pair") {
-      lines.push(`${elementVar}.setAttribute(${JSON.stringify(mod.key)}, ${JSON.stringify(mod.value)});`);
+      lines.push(
+        `${elementVar}.setAttribute(${JSON.stringify(mod.key)}, ${JSON.stringify(mod.value)});`,
+      );
     } else if (mod.type === "event") {
       const handlerCode = compileEventHandler(mod, ctx, elementVar);
       lines.push(handlerCode);
@@ -236,7 +263,11 @@ function compileInlineNode(node: InlineNode, ctx: ComponentContext, parentVar: s
   return lines.join("\n");
 }
 
-function compileElementNode(node: ElementNode, ctx: ComponentContext, parentVar: string): string {
+function compileElementNode(
+  node: ElementNode,
+  ctx: ComponentContext,
+  parentVar: string,
+): string {
   const idx = nextElementId(ctx);
   const elementVar = `${node.name}${idx}`;
 
@@ -248,9 +279,13 @@ function compileElementNode(node: ElementNode, ctx: ComponentContext, parentVar:
 
   for (const mod of node.modifiers) {
     if (mod.type === "flag") {
-      lines.push(`${elementVar}.setAttribute(${JSON.stringify(mod.value)}, '');`);
+      lines.push(
+        `${elementVar}.setAttribute(${JSON.stringify(mod.value)}, '');`,
+      );
     } else if (mod.type === "pair") {
-      lines.push(`${elementVar}.setAttribute(${JSON.stringify(mod.key)}, ${JSON.stringify(mod.value)});`);
+      lines.push(
+        `${elementVar}.setAttribute(${JSON.stringify(mod.key)}, ${JSON.stringify(mod.value)});`,
+      );
     } else if (mod.type === "event") {
       const handlerCode = compileEventHandler(mod, ctx, elementVar);
       lines.push(handlerCode);

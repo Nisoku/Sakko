@@ -27,7 +27,8 @@ export function parseStateDeclaration(
     }
 
     const varToken = parser.peek();
-    const isVarDecl = varToken?.type === "IDENT" && parser.peekAheadIs("EQUALS");
+    const isVarDecl =
+      varToken?.type === "IDENT" && parser.peekAheadIs("EQUALS");
 
     if (!isVarDecl) {
       if (declarations.length === 0) {

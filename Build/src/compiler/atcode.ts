@@ -103,7 +103,10 @@ function compileHandlerBody(code: string, ctx: ComponentContext): string {
     const escapedVarName = escapeRegExp(varName);
 
     result = result.replace(
-      new RegExp(`(?<![A-Za-z0-9_$])${escapedVarName}(?![A-Za-z0-9_$])\\+\\+`, "g"),
+      new RegExp(
+        `(?<![A-Za-z0-9_$])${escapedVarName}(?![A-Za-z0-9_$])\\+\\+`,
+        "g",
+      ),
       `${varName}.set(${varName}.get() + 1)`,
     );
 
@@ -113,7 +116,10 @@ function compileHandlerBody(code: string, ctx: ComponentContext): string {
     );
 
     result = result.replace(
-      new RegExp(`(?<![A-Za-z0-9_$])${escapedVarName}(?![A-Za-z0-9_$])\\s*\\+=\\s*([^;]+)`, "g"),
+      new RegExp(
+        `(?<![A-Za-z0-9_$])${escapedVarName}(?![A-Za-z0-9_$])\\s*\\+=\\s*([^;]+)`,
+        "g",
+      ),
       (match, expr) => {
         const cleanExpr = expr.trim();
         const exprWithGet = addGetCallsToStateVars(cleanExpr, ctx);
@@ -122,7 +128,10 @@ function compileHandlerBody(code: string, ctx: ComponentContext): string {
     );
 
     result = result.replace(
-      new RegExp(`(?<![A-Za-z0-9_$])${escapedVarName}(?![A-Za-z0-9_$])\\s*-=\\s*([^;]+)`, "g"),
+      new RegExp(
+        `(?<![A-Za-z0-9_$])${escapedVarName}(?![A-Za-z0-9_$])\\s*-=\\s*([^;]+)`,
+        "g",
+      ),
       (match, expr) => {
         const cleanExpr = expr.trim();
         const exprWithGet = addGetCallsToStateVars(cleanExpr, ctx);
@@ -131,9 +140,12 @@ function compileHandlerBody(code: string, ctx: ComponentContext): string {
     );
 
     result = result.replace(
-      new RegExp(`(?<![A-Za-z0-9_$])${escapedVarName}(?![A-Za-z0-9_$])\\s*=(?!\\s*=(?!=))\\s*([^;]+)`, "g"),
+      new RegExp(
+        `(?<![A-Za-z0-9_$])${escapedVarName}(?![A-Za-z0-9_$])\\s*=(?!\\s*=(?!=))\\s*([^;]+)`,
+        "g",
+      ),
       (match, expr) => {
-        if (expr.includes('.set(')) return match;
+        if (expr.includes(".set(")) return match;
         const cleanExpr = expr.trim();
         const exprWithGet = addGetCallsToStateVars(cleanExpr, ctx);
         return `${varName}.set(${exprWithGet})`;
@@ -212,9 +224,9 @@ export function compileClassModifier(
 
 function escapeTemplateLiteral(str: string): string {
   return str
-    .replace(/\\/g, () => "\\\\")      // Escape backslashes first
-    .replace(/`/g, () => "\\`")        // Escape backticks
-    .replace(/\$\{/g, () => "\\${");   // Escape ${ sequences
+    .replace(/\\/g, () => "\\\\") // Escape backslashes first
+    .replace(/`/g, () => "\\`") // Escape backticks
+    .replace(/\$\{/g, () => "\\${"); // Escape ${ sequences
 }
 
 function escapeRegExp(str: string): string {
@@ -238,7 +250,9 @@ export function compileInterpolation(
 
   if (!hasReactiveExpr) {
     const str = parts
-      .map((p) => (p.type === "text" ? escapeTemplateLiteral(p.value) : `\${${p.value}}`))
+      .map((p) =>
+        p.type === "text" ? escapeTemplateLiteral(p.value) : `\${${p.value}}`,
+      )
       .join("");
     return { static: true, code: `\`${str}\`` };
   }
@@ -252,7 +266,10 @@ export function compileInterpolation(
         if (!/^[A-Za-z_]\w*$/.test(varName)) continue;
         const escapedVarName = escapeRegExp(varName);
         expr = expr.replace(
-          new RegExp(`(?<![A-Za-z0-9_$.])${escapedVarName}(?![A-Za-z0-9_$])`, "g"),
+          new RegExp(
+            `(?<![A-Za-z0-9_$.])${escapedVarName}(?![A-Za-z0-9_$])`,
+            "g",
+          ),
           `${varName}.get()`,
         );
       }

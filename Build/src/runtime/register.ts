@@ -22,29 +22,37 @@ function isBrowser(): boolean {
 }
 
 function hasExportDeclaration(evalCode: string, name: string): boolean {
-  const exportDeclaration = new RegExp(`export\\s+(?:function|const|let|class)\\s+${name}\\b`);
+  const exportDeclaration = new RegExp(
+    `export\\s+(?:function|const|let|class)\\s+${name}\\b`,
+  );
   const exportList = new RegExp(`export\\s*{\\s*${name}\\b`);
   return exportDeclaration.test(evalCode) || exportList.test(evalCode);
 }
 
 function stripExports(code: string): string {
   return code
-    .replace(/export\s+function\s+/g, 'function ')
-    .replace(/export\s+const\s+/g, 'const ')
-    .replace(/export\s+let\s+/g, 'let ')
-    .replace(/export\s+var\s+/g, 'var ')
-    .replace(/export\s+class\s+/g, 'class ')
-    .replace(/export\s+default\s+/g, '');
+    .replace(/export\s+function\s+/g, "function ")
+    .replace(/export\s+const\s+/g, "const ")
+    .replace(/export\s+let\s+/g, "let ")
+    .replace(/export\s+var\s+/g, "var ")
+    .replace(/export\s+class\s+/g, "class ")
+    .replace(/export\s+default\s+/g, "");
 }
 
 async function createFactoryFromCode(
   evalCode: string,
   componentName: string,
   modulePath: string,
-): Promise<{ factory: (id?: string) => HTMLElement; dispose: (id: string) => void }> {
+): Promise<{
+  factory: (id?: string) => HTMLElement;
+  dispose: (id: string) => void;
+}> {
   if (isBrowser()) {
     let moduleCode = evalCode;
-    if (!hasExportDeclaration(evalCode, componentName) || !hasExportDeclaration(evalCode, 'dispose')) {
+    if (
+      !hasExportDeclaration(evalCode, componentName) ||
+      !hasExportDeclaration(evalCode, "dispose")
+    ) {
       moduleCode = `${evalCode}\nexport { ${componentName}, dispose };\n`;
     }
     const blob = new Blob([moduleCode], { type: "text/javascript" });
@@ -60,75 +68,114 @@ async function createFactoryFromCode(
     }
   } else {
     const strippedCode = stripExports(evalCode);
-    const safeRequire = typeof require !== "undefined" ? require : (pkg: string) => {
-      throw new Error(`require is not available. Module '${pkg}' could not be resolved.`);
-    };
-    const result = new Function('require', `
+    const safeRequire =
+      typeof require !== "undefined"
+        ? require
+        : (pkg: string) => {
+            throw new Error(
+              `require is not available. Module '${pkg}' could not be resolved.`,
+            );
+          };
+    const result = new Function(
+      "require",
+      `
       const module = { exports: {} };
       const exports = module.exports;
       ${strippedCode}
       module.exports.${componentName} = ${componentName};
       module.exports.dispose = dispose;
       return { factory: module.exports.${componentName}, dispose: module.exports.dispose };
-    `)(safeRequire);
-    return result as { factory: (id?: string) => HTMLElement; dispose: (id: string) => void };
+    `,
+    )(safeRequire);
+    return result as {
+      factory: (id?: string) => HTMLElement;
+      dispose: (id: string) => void;
+    };
   }
 }
 
-export async function registerSakkoComponent(ast: RootNode, options: RegisterOptions = {}): Promise<void> {
+export async function registerSakkoComponent(
+  ast: RootNode,
+  options: RegisterOptions = {},
+): Promise<void> {
   const importMode = options.sairinImport ?? "global";
   const globalName = options.sairinGlobal ?? "sairin";
   const modulePath = options.sairinModule ?? "sairin";
   const normalizedName = ast.name.toLowerCase();
 
-  const componentCode = compileComponent(ast, { sairinImport: importMode, sairinGlobal: globalName, sairinModule: modulePath });
+  const componentCode = compileComponent(ast, {
+    sairinImport: importMode,
+    sairinGlobal: globalName,
+    sairinModule: modulePath,
+  });
   const componentName = toPascalCase(ast.name);
 
   if (importMode === "esm") {
-    throw new Error(`registerSakkoComponent: ESM mode requires a bundler. Use 'global' mode or call compileComponent separately.`);
+    throw new Error(
+      `registerSakkoComponent: ESM mode requires a bundler. Use 'global' mode or call compileComponent separately.`,
+    );
   }
 
   if (importMode === "cjs" && isBrowser()) {
-    throw new Error(`registerSakkoComponent: CJS mode is not supported in browsers. Use 'global' mode or call compileComponent separately for bundler integration.`);
+    throw new Error(
+      `registerSakkoComponent: CJS mode is not supported in browsers. Use 'global' mode or call compileComponent separately for bundler integration.`,
+    );
   }
 
   let evalCode = componentCode;
   if (importMode === "cjs") {
     evalCode = componentCode
-      .replace(/import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"];?/g, (_m, name, mod) =>
-        `const ${name} = require('${mod}');`
+      .replace(
+        /import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"];?/g,
+        (_m, name, mod) => `const ${name} = require('${mod}');`,
       )
-      .replace(/import\s+\{\s*([\s\S]*?)\s*\}\s*from\s+['"]([^'"]+)['"];?/g, (_m, specifiers, mod) => {
-        const names = specifiers.split(',').map((s: string) => {
-          const trimmed = s.trim();
-          const match = trimmed.match(/^(\w+)(?:\s+as\s+\w+)?$/);
-          return match ? match[1] : trimmed;
-        }).filter(Boolean);
-        return `const {${names.join(', ')}} = require('${mod}');`;
-      })
+      .replace(
+        /import\s+\{\s*([\s\S]*?)\s*\}\s*from\s+['"]([^'"]+)['"];?/g,
+        (_m, specifiers, mod) => {
+          const names = specifiers
+            .split(",")
+            .map((s: string) => {
+              const trimmed = s.trim();
+              const match = trimmed.match(/^(\w+)(?:\s+as\s+\w+)?$/);
+              return match ? match[1] : trimmed;
+            })
+            .filter(Boolean);
+          return `const {${names.join(", ")}} = require('${mod}');`;
+        },
+      )
       .replace(/export\s+\{\s*([\s\S]*?)\s*\};?/g, (_m, specifiers) => {
-        const lines = specifiers.split(',').map((s: string) => {
-          const trimmed = s.trim();
-          const match = trimmed.match(/^(\w+)(?:\s+as\s+(\w+))?$/);
-          if (match) {
-            const original = match[1];
-            const alias = match[2];
-            return `module.exports.${alias || original} = ${original};`;
-          }
-          return '';
-        }).filter(Boolean);
-        return lines.join('\n');
+        const lines = specifiers
+          .split(",")
+          .map((s: string) => {
+            const trimmed = s.trim();
+            const match = trimmed.match(/^(\w+)(?:\s+as\s+(\w+))?$/);
+            if (match) {
+              const original = match[1];
+              const alias = match[2];
+              return `module.exports.${alias || original} = ${original};`;
+            }
+            return "";
+          })
+          .filter(Boolean);
+        return lines.join("\n");
       })
-      .replace(/export\s+default\s+function\s+(\w+)/g, 'module.exports = function $1')
-      .replace(/export\s+default\s+/g, 'module.exports = ')
-      .replace(/export\s+function\s+/g, 'function ')
-      .replace(/export\s+const\s+/g, 'const ');
+      .replace(
+        /export\s+default\s+function\s+(\w+)/g,
+        "module.exports = function $1",
+      )
+      .replace(/export\s+default\s+/g, "module.exports = ")
+      .replace(/export\s+function\s+/g, "function ")
+      .replace(/export\s+const\s+/g, "const ");
 
     evalCode += `\nmodule.exports.${componentName} = ${componentName};\n`;
     evalCode += `module.exports.dispose = dispose;\n`;
   }
 
-  const { factory, dispose } = await createFactoryFromCode(evalCode, componentName, modulePath);
+  const { factory, dispose } = await createFactoryFromCode(
+    evalCode,
+    componentName,
+    modulePath,
+  );
 
   componentRegistry.set(normalizedName, {
     name: normalizedName,
@@ -182,13 +229,18 @@ export async function registerSakkoComponent(ast: RootNode, options: RegisterOpt
   }
 }
 
-export function getComponent(name: string): Readonly<RegisteredComponent> | undefined {
+export function getComponent(
+  name: string,
+): Readonly<RegisteredComponent> | undefined {
   const entry = componentRegistry.get(name.toLowerCase());
   if (!entry) return undefined;
   return Object.freeze({ ...entry });
 }
 
-export function getAllComponents(): ReadonlyMap<string, Readonly<RegisteredComponent>> {
+export function getAllComponents(): ReadonlyMap<
+  string,
+  Readonly<RegisteredComponent>
+> {
   const frozen = new Map<string, Readonly<RegisteredComponent>>();
   for (const [key, entry] of componentRegistry) {
     frozen.set(key, Object.freeze({ ...entry }));

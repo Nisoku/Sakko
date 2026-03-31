@@ -1,7 +1,11 @@
 import type { Modifier, ParserState } from "../types";
 import type { Token } from "../tokenizer";
 
-function parseEventHandler(parser: ParserState, eventName: string, eventToken?: Token): string {
+function parseEventHandler(
+  parser: ParserState,
+  eventName: string,
+  eventToken?: Token,
+): string {
   if (parser.check("LBRACE")) {
     parser.consume();
     const handler = parser.parseBlockBody();
@@ -10,7 +14,7 @@ function parseEventHandler(parser: ParserState, eventName: string, eventToken?: 
   }
   throw parser.errorAt(
     `Event handlers must use block syntax: @on:${eventName} { ... }`,
-    eventToken || parser.peek()
+    eventToken || parser.peek(),
   );
 }
 
