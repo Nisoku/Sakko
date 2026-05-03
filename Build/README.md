@@ -309,8 +309,8 @@ npm run build
 
 | Document | Summary |
 | --- | --- |
-| [Language Reference](https://nisoku.github.io/Sakko/language-reference/) | Full Sakko syntax guide |
-| [API Reference](https://nisoku.github.io/Sakko/api-reference/) | Public API surface |
+| [Language Reference](https://nisoku.org/Sakko/language-reference/) | Full Sakko syntax guide |
+| [API Reference](https://nisoku.org/Sakko/api-reference/) | Public API surface |
 
 ### Run docs locally
 
