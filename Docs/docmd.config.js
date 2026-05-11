@@ -14,6 +14,13 @@ module.exports = {
     enableModeToggle: true,
   },
 
+  "plugins": {
+    "sitemap": {
+      "defaultChangefreq": "weekly",
+      "defaultPriority": 0.8
+    }
+  },
+  
   navigation: [
     { title: 'Home', path: '/', icon: 'home' },
     {
