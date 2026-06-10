@@ -390,4 +390,34 @@ describe("Parser", () => {
       { type: "pair", key: "title", value: "Hello" },
     ]);
   });
+
+  test("parses id as pair key", () => {
+    const ast = parseSakko('<page { input(id "myInput"): "" }>');
+    const input = ast.children[0] as any;
+    expect(input.modifiers).toContainEqual({
+      type: "pair",
+      key: "id",
+      value: "myInput",
+    });
+  });
+
+  test("parses class as pair key", () => {
+    const ast = parseSakko('<page { div(class "container"): "" }>');
+    const div = ast.children[0] as any;
+    expect(div.modifiers).toContainEqual({
+      type: "pair",
+      key: "class",
+      value: "container",
+    });
+  });
+
+  test("parses data-* as pair key", () => {
+    const ast = parseSakko('<page { div(data-tile "3"): "" }>');
+    const div = ast.children[0] as any;
+    expect(div.modifiers).toContainEqual({
+      type: "pair",
+      key: "data-tile",
+      value: "3",
+    });
+  });
 });

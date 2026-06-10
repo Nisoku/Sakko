@@ -53,7 +53,10 @@ const KNOWN_KEYS = new Set([
   "open",
   "message",
   "title",
+  "id",
+  "class",
 ]);
+
 
 export class Parser {
   tokens: Token[];
@@ -194,6 +197,8 @@ export class Parser {
 
       if (token.type === "STRING") {
         body += JSON.stringify(token.value);
+      } else if (token.type === "BACKTICK_STRING") {
+        body += "`" + token.value + "`";
       } else {
         body += token.value;
       }
@@ -397,8 +402,10 @@ export class Parser {
 
       const token = this.peek();
       if (!token || token.type !== "IDENT") {
+        const commonKeys = [...KNOWN_KEYS].slice(0, 15).join(", ");
         throw this.errorAt(
-          `Expected identifier in modifiers but got ${token?.type || "end of input"}`,
+          `Expected identifier in modifiers but got ${token?.type || "end of input"}. ` +
+          `If you're setting an attribute, known keys include: ${commonKeys}${KNOWN_KEYS.size > 15 ? ", ..." : ""}`,
           token,
         );
       }
@@ -406,10 +413,10 @@ export class Parser {
 
       const next = this.peek();
       if (
-        KNOWN_KEYS.has(token.value) &&
         next &&
         (next.type === "IDENT" || next.type === "STRING") &&
-        !this.check("RPAREN")
+        !this.check("RPAREN") &&
+        (KNOWN_KEYS.has(token.value) || token.value.startsWith("data-"))
       ) {
         modifiers.push({
           type: "pair",

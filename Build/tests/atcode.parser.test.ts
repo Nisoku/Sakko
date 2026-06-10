@@ -176,4 +176,22 @@ describe("Parser - Atcode Declarations", () => {
 
     expect(() => parseSakko(input)).toThrow("Expected variable declaration");
   });
+
+  test("parses @effect with backtick template literal", () => {
+    const input = `<app {
+      @state { count = 0 }
+      @effect {
+        document.title = \`Count: \${count}\`
+      }
+      text: "App"
+    }>`;
+
+    const ast = parseSakko(input);
+    const effectDecl = ast.declarations.find(d => d.type === "effect");
+    expect(effectDecl).toBeDefined();
+    if (effectDecl?.type === "effect") {
+      expect(effectDecl.body).toContain("`Count:");
+      expect(effectDecl.body).toContain("${count}");
+    }
+  });
 });

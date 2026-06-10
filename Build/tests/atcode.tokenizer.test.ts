@@ -82,4 +82,43 @@ describe("Tokenizer - Atcode Extensions", () => {
     expect(exprs[0].value).toBe("a");
     expect(exprs[1].value).toBe("b");
   });
+
+  describe('backtick strings', () => {
+    test("tokenizes backtick string as BACKTICK_STRING", () => {
+      const tokens = tokenize("`hello world`");
+      expect(tokens).toHaveLength(1);
+      expect(tokens[0].type).toBe("BACKTICK_STRING");
+      expect(tokens[0].value).toBe("hello world");
+    });
+
+    test("backtick string with ${} does not produce interpolation tokens", () => {
+      const tokens = tokenize("`Count: ${count}`");
+      expect(tokens).toHaveLength(1);
+      expect(tokens[0].type).toBe("BACKTICK_STRING");
+      expect(tokens[0].value).toBe("Count: ${count}");
+    });
+
+    test("backtick string with nested template expressions", () => {
+      const tokens = tokenize("`${a} + ${b} = ${a + b}`");
+      expect(tokens).toHaveLength(1);
+      expect(tokens[0].type).toBe("BACKTICK_STRING");
+    });
+
+    test("mixed double-quoted and backtick strings", () => {
+      const tokens = tokenize('"normal" `template` "also normal"');
+      const types = tokens.map(t => t.type);
+      expect(types).toEqual(["STRING", "BACKTICK_STRING", "STRING"]);
+    });
+
+    test("backtick string inside @effect block body preserves template literal", () => {
+      const tokens = tokenize('console.log(`Count: ${count}`)');
+      const backtick = tokens.find(t => t.type === "BACKTICK_STRING");
+      expect(backtick).toBeDefined();
+      expect(backtick!.value).toBe("Count: ${count}");
+    });
+
+    test("unterminated backtick string throws", () => {
+      expect(() => tokenize("`unclosed")).toThrow();
+    });
+  });
 });

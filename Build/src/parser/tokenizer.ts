@@ -14,6 +14,7 @@ export type TokenType =
   | "COMMA"
   | "IDENT"
   | "STRING"
+  | "BACKTICK_STRING"
   | "AT"
   | "EQUALS"
   | "INTERP_START"
@@ -128,7 +129,8 @@ export function tokenize(input: string): Token[] {
       continue;
     }
 
-    if (ch === '"') {
+    if (ch === '"' || ch === '`') {
+      const quote = ch;
       const startCol = col;
       i++;
       col++;
@@ -136,7 +138,7 @@ export function tokenize(input: string): Token[] {
       // Scan only the substring up to the next unescaped closing quote
       // so we don't accidentally detect braces outside this literal.
       let scanEnd = i;
-      while (scanEnd < input.length && input[scanEnd] !== '"') {
+      while (scanEnd < input.length && input[scanEnd] !== quote) {
         if (input[scanEnd] === "\\" && scanEnd + 1 < input.length) {
           scanEnd += 2; // skip the escaped character
         } else {
@@ -144,7 +146,7 @@ export function tokenize(input: string): Token[] {
         }
       }
       const literalContent = input.slice(i, scanEnd);
-      const hasInterpolation = /\{[\s\S]*?\}/.test(literalContent);
+      const hasInterpolation = quote === '"' && /\{[\s\S]*?\}/.test(literalContent);
 
       if (hasInterpolation) {
         const result = tokenizeStringWithInterpolation(
@@ -162,7 +164,7 @@ export function tokenize(input: string): Token[] {
       }
 
       let str = "";
-      while (i < input.length && input[i] !== '"') {
+      while (i < input.length && input[i] !== quote) {
         if (input[i] === "\\" && i + 1 < input.length) {
           i++;
           col++;
@@ -185,13 +187,14 @@ export function tokenize(input: string): Token[] {
           position: i,
           line,
           column: startCol,
-          suggestion: 'Add a closing quote "',
+          suggestion: `Add a closing ${quote}`,
         });
         throw new Error(`Unterminated string at line ${line}, col ${startCol}`);
       }
       i++;
       col++;
-      tokens.push({ type: "STRING", value: str, line, col: startCol });
+      const tokenType = quote === '`' ? "BACKTICK_STRING" : "STRING";
+      tokens.push({ type: tokenType, value: str, line, col: startCol });
       continue;
     }
 
