@@ -113,10 +113,7 @@ export function parseInlineModifier(parser: ParserState): Modifier {
       parser.expect("RBRACE");
       return { type: "atcode", name: "style", body };
     }
-    throw parser.errorAt(
-      `@style requires a string or object body`,
-      nameToken,
-    );
+    throw parser.errorAt(`@style requires a string or object body`, nameToken);
   }
 
   // @if "signalName"

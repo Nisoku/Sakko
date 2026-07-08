@@ -139,7 +139,7 @@ export function tokenize(input: string): Token[] {
       continue;
     }
 
-    if (ch === '"' || ch === '`') {
+    if (ch === '"' || ch === "`") {
       const quote = ch;
       const startCol = col;
       i++;
@@ -156,7 +156,8 @@ export function tokenize(input: string): Token[] {
         }
       }
       const literalContent = input.slice(i, scanEnd);
-      const hasInterpolation = quote === '"' && /\{[\s\S]*?\}/.test(literalContent);
+      const hasInterpolation =
+        quote === '"' && /\{[\s\S]*?\}/.test(literalContent);
 
       if (hasInterpolation) {
         const result = tokenizeStringWithInterpolation(
@@ -203,7 +204,7 @@ export function tokenize(input: string): Token[] {
       }
       i++;
       col++;
-      const tokenType = quote === '`' ? "BACKTICK_STRING" : "STRING";
+      const tokenType = quote === "`" ? "BACKTICK_STRING" : "STRING";
       tokens.push({ type: tokenType, value: str, line, col: startCol });
       continue;
     }

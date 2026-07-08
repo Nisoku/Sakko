@@ -55,6 +55,7 @@ const KNOWN_KEYS = new Set([
   "title",
   "id",
   "class",
+  "hidden",
   // positioning / layout
   "position",
   "top",
@@ -78,7 +79,6 @@ const KNOWN_KEYS = new Set([
   "align-self",
   "justify-self",
 ]);
-
 
 export class Parser {
   tokens: Token[];
@@ -258,7 +258,11 @@ export class Parser {
         ) {
           break;
         }
-        if (token?.type === "IDENT" && this.peekAheadIs("EQUALS") && this.peekAhead(2)?.type !== "EQUALS") {
+        if (
+          token?.type === "IDENT" &&
+          this.peekAheadIs("EQUALS") &&
+          this.peekAhead(2)?.type !== "EQUALS"
+        ) {
           break;
         }
       }
@@ -474,7 +478,7 @@ export class Parser {
         const commonKeys = [...KNOWN_KEYS].slice(0, 15).join(", ");
         throw this.errorAt(
           `Expected identifier in modifiers but got ${token?.type || "end of input"}. ` +
-          `If you're setting an attribute, known keys include: ${commonKeys}${KNOWN_KEYS.size > 15 ? ", ..." : ""}`,
+            `If you're setting an attribute, known keys include: ${commonKeys}${KNOWN_KEYS.size > 15 ? ", ..." : ""}`,
           token,
         );
       }
