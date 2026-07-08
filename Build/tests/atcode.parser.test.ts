@@ -194,4 +194,37 @@ describe("Parser - Atcode Declarations", () => {
       expect(effectDecl.body).toContain("${count}");
     }
   });
+
+  test("parses @style modifier as atcode", () => {
+    const input = `<page { button(@style "color: red"): "Click" }>`;
+    const ast = parseSakko(input);
+    const btn = ast.children[0] as any;
+    expect(btn.modifiers).toContainEqual({
+      type: "atcode",
+      name: "style",
+      body: "color: red",
+    });
+  });
+
+  test("parses @if modifier as atcode", () => {
+    const input = `<page { button(@if="isVisible"): "Click" }>`;
+    const ast = parseSakko(input);
+    const btn = ast.children[0] as any;
+    expect(btn.modifiers).toContainEqual({
+      type: "atcode",
+      name: "if",
+      body: "isVisible",
+    });
+  });
+
+  test("parses @if with identifier (no quotes)", () => {
+    const input = `<page { button(@if=isVisible): "Click" }>`;
+    const ast = parseSakko(input);
+    const btn = ast.children[0] as any;
+    expect(btn.modifiers).toContainEqual({
+      type: "atcode",
+      name: "if",
+      body: "isVisible",
+    });
+  });
 });

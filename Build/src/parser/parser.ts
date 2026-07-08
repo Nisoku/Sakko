@@ -55,6 +55,28 @@ const KNOWN_KEYS = new Set([
   "title",
   "id",
   "class",
+  // positioning / layout
+  "position",
+  "top",
+  "right",
+  "bottom",
+  "left",
+  "inset",
+  "z-index",
+  "display",
+  "overflow",
+  "float",
+  "margin",
+  "padding",
+  "width",
+  "height",
+  "transform",
+  "transition",
+  "opacity",
+  "flex",
+  "order",
+  "align-self",
+  "justify-self",
 ]);
 
 
@@ -182,6 +204,7 @@ export class Parser {
   parseBlockBody(): string {
     let body = "";
     let braceDepth = 0;
+    let prevToken: Token | null = null;
 
     while (this.peek()) {
       const token = this.peek()!;
@@ -190,6 +213,15 @@ export class Parser {
 
       if (token.type === "LBRACE") braceDepth++;
       if (token.type === "RBRACE") braceDepth--;
+
+      if (
+        prevToken &&
+        prevToken.line < token.line &&
+        prevToken.type === "STRING" &&
+        token.type === "IDENT"
+      ) {
+        body += ";\n";
+      }
 
       if (this._shouldInsertSpace(body, token)) {
         body += " ";
@@ -202,6 +234,7 @@ export class Parser {
       } else {
         body += token.value;
       }
+      prevToken = token;
       this.consume();
     }
 
@@ -225,7 +258,7 @@ export class Parser {
         ) {
           break;
         }
-        if (token?.type === "IDENT" && this.peekAheadIs("EQUALS")) {
+        if (token?.type === "IDENT" && this.peekAheadIs("EQUALS") && this.peekAhead(2)?.type !== "EQUALS") {
           break;
         }
       }
@@ -389,6 +422,42 @@ export class Parser {
           modifiers.push({
             type: "atcode",
             name: "bind",
+            body: signal,
+          });
+          continue;
+        }
+
+        if (nameToken.value === "style") {
+          if (this.check("STRING")) {
+            modifiers.push({
+              type: "atcode",
+              name: "style",
+              body: this.consume().value,
+            });
+            continue;
+          }
+          if (this.check("LBRACE")) {
+            this.consume();
+            const body = this.parseBlockBody();
+            this.expect("RBRACE");
+            modifiers.push({ type: "atcode", name: "style", body });
+            continue;
+          }
+          throw this.errorAt(
+            `@style requires a string or object body`,
+            nameToken,
+          );
+        }
+
+        if (nameToken.value === "if") {
+          this.expect("EQUALS");
+          const signal = this.check("STRING")
+            ? this.consume().value
+            : this.expect("IDENT").value;
+
+          modifiers.push({
+            type: "atcode",
+            name: "if",
             body: signal,
           });
           continue;

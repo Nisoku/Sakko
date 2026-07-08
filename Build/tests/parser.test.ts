@@ -420,4 +420,26 @@ describe("Parser", () => {
       value: "3",
     });
   });
+
+  test("parses position modifiers as pair keys", () => {
+    const ast = parseSakko('<page { div(position absolute top 10 left 20): "" }>');
+    const div = ast.children[0] as any;
+    expect(div.modifiers).toContainEqual({ type: "pair", key: "position", value: "absolute" });
+    expect(div.modifiers).toContainEqual({ type: "pair", key: "top", value: "10" });
+    expect(div.modifiers).toContainEqual({ type: "pair", key: "left", value: "20" });
+  });
+
+  test("parses layout modifiers as pair keys", () => {
+    const ast = parseSakko('<page { div(display flex width "100%"): "" }>');
+    const div = ast.children[0] as any;
+    expect(div.modifiers).toContainEqual({ type: "pair", key: "display", value: "flex" });
+    expect(div.modifiers).toContainEqual({ type: "pair", key: "width", value: "100%" });
+  });
+
+  test("parses z-index and opacity as pair keys", () => {
+    const ast = parseSakko('<page { div(z-index 10 opacity "0.5"): "" }>');
+    const div = ast.children[0] as any;
+    expect(div.modifiers).toContainEqual({ type: "pair", key: "z-index", value: "10" });
+    expect(div.modifiers).toContainEqual({ type: "pair", key: "opacity", value: "0.5" });
+  });
 });

@@ -23,7 +23,12 @@ export type TokenType =
   | "DOT"
   | "PLUS"
   | "MINUS"
-  | "STAR";
+  | "STAR"
+  | "PIPE"
+  | "AMPERSAND"
+  | "BANG"
+  | "QUESTION"
+  | "PERCENT";
 
 export type Token = {
   type: TokenType;
@@ -120,6 +125,11 @@ export function tokenize(input: string): Token[] {
       "+": "PLUS",
       "-": "MINUS",
       "*": "STAR",
+      "|": "PIPE",
+      "&": "AMPERSAND",
+      "!": "BANG",
+      "?": "QUESTION",
+      "%": "PERCENT",
     };
 
     if (SYMBOLS[ch]) {

@@ -23,8 +23,10 @@ describe('Tokenizer - Error handling', () => {
     expect(() => tokenize('price: $5')).toThrow('Unexpected character: $');
   });
 
-  test('should throw on unexpected character !', () => {
-    expect(() => tokenize('!important')).toThrow('Unexpected character: !');
+  test('should tokenize ! as a valid operator', () => {
+    const tokens = tokenize('!important');
+    expect(tokens[0]).toMatchObject({ type: 'BANG', value: '!' });
+    expect(tokens[1]).toMatchObject({ type: 'IDENT', value: 'important' });
   });
 
   test('should handle string with only whitespace content', () => {

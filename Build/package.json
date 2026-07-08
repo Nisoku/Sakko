@@ -1,6 +1,6 @@
 {
   "name": "@nisoku/sakko",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Sakko, the modern DSL (Design Sub-Language)",
   "license": "Apache-2.0",
   "repository": {
@@ -29,6 +29,7 @@
   ],
   "scripts": {
     "build": "vite build",
+    "dev": "vite build --watch",
     "test": "jest --no-cache",
     "make-pretty": "prettier --write 'src/**/*.{ts,tsx,js,jsx,json,css,scss,md,html,cjs}'"
   },

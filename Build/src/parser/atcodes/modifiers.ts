@@ -101,5 +101,37 @@ export function parseInlineModifier(parser: ParserState): Modifier {
     };
   }
 
+  // @style "css-string" | @style { ... }
+  if (name === "style") {
+    if (parser.check("STRING")) {
+      const value = parser.consume().value;
+      return { type: "atcode", name: "style", body: value };
+    }
+    if (parser.check("LBRACE")) {
+      parser.consume();
+      const body = parser.parseBlockBody();
+      parser.expect("RBRACE");
+      return { type: "atcode", name: "style", body };
+    }
+    throw parser.errorAt(
+      `@style requires a string or object body`,
+      nameToken,
+    );
+  }
+
+  // @if "signalName"
+  if (name === "if") {
+    parser.expect("EQUALS");
+    const signal = parser.check("STRING")
+      ? parser.consume().value
+      : parser.expect("IDENT").value;
+
+    return {
+      type: "atcode",
+      name: "if",
+      body: signal,
+    };
+  }
+
   throw parser.errorAt(`Unknown modifier: @${name}`, nameToken);
 }
