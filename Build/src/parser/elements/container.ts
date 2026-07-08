@@ -1,7 +1,6 @@
 import type { ElementNode, ASTNode, Modifier, ParserState } from "../types";
 
 export function parseElementNode(
-   
   _parser: ParserState,
   name: string,
   modifiers: Array<{ type: string; value?: string; key?: string }>,

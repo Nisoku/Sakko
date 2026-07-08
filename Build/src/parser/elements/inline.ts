@@ -16,7 +16,12 @@ export function parseInlineNode(
   const valToken = parser.peek();
 
   if (!valToken) {
-    return { type: "inline", name, modifiers: modifiers as Modifier[], value: "" };
+    return {
+      type: "inline",
+      name,
+      modifiers: modifiers as Modifier[],
+      value: "",
+    };
   }
 
   if (valToken.type === "STRING" || valToken.type === "INTERP_START") {
@@ -29,5 +34,10 @@ export function parseInlineNode(
     return { type: "inline", name, modifiers: modifiers as Modifier[], value };
   }
 
-  return { type: "inline", name, modifiers: modifiers as Modifier[], value: "" };
+  return {
+    type: "inline",
+    name,
+    modifiers: modifiers as Modifier[],
+    value: "",
+  };
 }
