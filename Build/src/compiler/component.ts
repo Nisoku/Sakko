@@ -27,7 +27,7 @@ export interface CompileOptions {
 
 function formatCode(code: string): string {
   const lines = code.split("\n");
-  let result: string[] = [];
+  const result: string[] = [];
   let baseIndent = 0;
 
   for (let i = 0; i < lines.length; i++) {

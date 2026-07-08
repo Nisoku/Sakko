@@ -60,13 +60,9 @@ export function parseInlineModifier(parser: ParserState): Modifier {
   // @on:eventName (shorthand)
   if (EVENT_NAMES.has(name)) {
     const event = name;
-    let handler = "";
-
-    if (parser.check("IDENT")) {
-      handler = parser.consume().value;
-    } else {
-      handler = parseEventHandler(parser, event, nameToken);
-    }
+    const handler = parser.check("IDENT")
+      ? parser.consume().value
+      : parseEventHandler(parser, event, nameToken);
 
     return {
       type: "event",

@@ -1,18 +1,23 @@
-let logger: any = null;
+let logger: {
+  info: (msg: string, opts?: Record<string, unknown>) => void;
+  warn: (msg: string, opts?: Record<string, unknown>) => void;
+  error: (msg: string, opts?: Record<string, unknown>) => void;
+} | null = null;
 
 function getLogger(scope: string) {
   if (!logger) {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const satori = require("@nisoku/satori");
       const s = satori.createSatori({ logLevel: "error", enableConsole: true });
       logger = s.createLogger(scope);
     } catch {
       logger = {
-        info: (msg: string, opts?: any) =>
+        info: (msg: string, opts?: unknown) =>
           console.log(`[${scope}] ${msg}`, opts),
-        warn: (msg: string, opts?: any) =>
+        warn: (msg: string, opts?: unknown) =>
           console.warn(`[${scope}] ${msg}`, opts),
-        error: (msg: string, opts?: any) =>
+        error: (msg: string, opts?: unknown) =>
           console.error(`[${scope}] ${msg}`, opts),
       };
     }

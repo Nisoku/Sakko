@@ -1,7 +1,6 @@
 import type {
   AtcodeDeclaration,
   Modifier,
-  InterpolatedText,
   InterpolatedTextPart,
 } from "../parser/parser";
 

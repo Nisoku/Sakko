@@ -209,10 +209,10 @@ export function tokenize(input: string): Token[] {
       continue;
     }
 
-    if (/[a-zA-Z0-9_\-]/.test(ch)) {
+    if (/[a-zA-Z0-9_-]/.test(ch)) {
       const startCol = col;
       let ident = "";
-      while (i < input.length && /[a-zA-Z0-9_\-]/.test(input[i])) {
+      while (i < input.length && /[a-zA-Z0-9_-]/.test(input[i])) {
         ident += input[i];
         i++;
         col++;

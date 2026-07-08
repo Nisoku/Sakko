@@ -1,4 +1,4 @@
-import type { InlineNode, InterpolatedText } from "../types";
+import type { InlineNode, InterpolatedText, Modifier } from "../types";
 import type { Token } from "../tokenizer";
 
 export interface ParserState {
@@ -16,18 +16,18 @@ export function parseInlineNode(
   const valToken = parser.peek();
 
   if (!valToken) {
-    return { type: "inline", name, modifiers: modifiers as any, value: "" };
+    return { type: "inline", name, modifiers: modifiers as Modifier[], value: "" };
   }
 
   if (valToken.type === "STRING" || valToken.type === "INTERP_START") {
     const value = parser.parseInterpolatedValue();
-    return { type: "inline", name, modifiers: modifiers as any, value };
+    return { type: "inline", name, modifiers: modifiers as Modifier[], value };
   }
 
   if (valToken.type === "IDENT") {
     const value = parser.consume().value;
-    return { type: "inline", name, modifiers: modifiers as any, value };
+    return { type: "inline", name, modifiers: modifiers as Modifier[], value };
   }
 
-  return { type: "inline", name, modifiers: modifiers as any, value: "" };
+  return { type: "inline", name, modifiers: modifiers as Modifier[], value: "" };
 }

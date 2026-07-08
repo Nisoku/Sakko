@@ -1,5 +1,5 @@
 import { compileComponent } from "./compiler/component";
-import { parseSakko } from "./parser/parser";
+import { parseSakko, type ASTNode } from "./parser/parser";
 
 export { tokenize } from "./parser/tokenizer";
 export { parseSakko, Parser } from "./parser/parser";
@@ -31,7 +31,7 @@ export {
   getAllComponents,
 } from "./runtime/register";
 
-export function compile(code: string): { code: string; ast?: any } {
+export function compile(code: string): { code: string; ast?: ASTNode } {
   try {
     const ast = parseSakko(code);
     const compiled = compileComponent(ast);

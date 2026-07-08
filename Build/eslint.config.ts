@@ -16,6 +16,15 @@ export default tseslint.config(
     files: ["**/*.js", "**/*.mjs", "**/*.cjs"],
     rules: {
       "no-undef": "off",
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
+  {
+    files: ["**/tests/**", "**/*.test.ts", "**/*.spec.ts", "**/__mocks__/**"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-require-imports": "off",
+      "prefer-const": "off",
     },
   },
 );

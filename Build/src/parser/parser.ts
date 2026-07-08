@@ -388,7 +388,7 @@ export class Parser {
       }
 
       if (this.check("AT")) {
-        const atToken = this.consume();
+        const _atToken = this.consume();
         const nameToken = this.expect("IDENT");
 
         if (nameToken.value === "on") {
@@ -559,7 +559,7 @@ export class Parser {
   }
 }
 
-function stripComments(input: string): string {
+function _stripComments(input: string): string {
   let result = "";
   let i = 0;
   while (i < input.length) {

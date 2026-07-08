@@ -42,7 +42,7 @@ function stripExports(code: string): string {
 async function createFactoryFromCode(
   evalCode: string,
   componentName: string,
-  modulePath: string,
+  _modulePath: string,
 ): Promise<{
   factory: (id?: string) => HTMLElement;
   dispose: (id: string) => void;

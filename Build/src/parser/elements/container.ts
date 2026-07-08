@@ -1,7 +1,7 @@
-import type { ElementNode, ListNode, ASTNode, ParserState } from "../types";
+import type { ElementNode, ASTNode, Modifier, ParserState } from "../types";
 
 export function parseElementNode(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   _parser: ParserState,
   name: string,
   modifiers: Array<{ type: string; value?: string; key?: string }>,
@@ -10,7 +10,7 @@ export function parseElementNode(
   return {
     type: "element",
     name,
-    modifiers: modifiers as any,
+    modifiers: modifiers as Modifier[],
     children,
   };
 }
