@@ -43,7 +43,7 @@ export function tokenizerError(
   message: string,
   options: TokenizerErrorOptions,
 ): void {
-  const log = getLogger("sakko");
+  const log = getLogger("sakko")!;
   log.error(message, {
     state: {
       position: options.position,
@@ -59,7 +59,7 @@ export function parserError(
   message: string,
   options: ParserErrorOptions,
 ): void {
-  const log = getLogger("sakko");
+  const log = getLogger("sakko")!;
   log.error(message, {
     state: { line: options.line, column: options.column },
     suggest: options.suggestion,
@@ -72,7 +72,7 @@ export function unknownComponentError(
   component: string,
   suggestion?: string,
 ): void {
-  const log = getLogger("sakko");
+  const log = getLogger("sakko")!;
   log.warn(`Unknown component "${component}", using saz-${component}`, {
     suggest: suggestion,
     tags: ["transformer", "warning"],
@@ -83,7 +83,7 @@ export function transformError(
   message: string,
   options: { suggestion?: string; cause?: string },
 ): void {
-  const log = getLogger("sakko");
+  const log = getLogger("sakko")!;
   log.error(message, {
     suggest: options.suggestion,
     cause: options.cause,

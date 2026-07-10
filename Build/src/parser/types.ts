@@ -60,7 +60,7 @@ export type ListNode = {
   items: ASTNode[];
 };
 
-export type ASTNode = ElementNode | InlineNode | ListNode;
+export type ASTNode = RootNode | ElementNode | InlineNode | ListNode;
 
 import type { Token } from "./tokenizer";
 

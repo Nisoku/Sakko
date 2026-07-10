@@ -12,7 +12,7 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, "src/index.ts"),
-      name: "Sazami",
+      name: "Sakko",
       formats: ["es", "cjs"],
       fileName: (format) => {
         if (format === "es") return "index.mjs";
