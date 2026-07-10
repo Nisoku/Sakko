@@ -467,6 +467,35 @@ export class Parser {
           continue;
         }
 
+        if (nameToken.value === "class") {
+          this.expect("COLON");
+          const classToken = this.expect("IDENT");
+          modifiers.push({
+            type: "atcode",
+            name: "class",
+            body: classToken.value,
+          });
+          continue;
+        }
+
+        if (nameToken.value === "each") {
+          const item = this.expect("IDENT");
+          const inToken = this.expect("IDENT", "Expected 'in' in @each expression");
+          if (inToken.value !== "in") {
+            throw this.errorAt(
+              `Expected 'in' in @each expression, got '${inToken.value}'`,
+              inToken,
+            );
+          }
+          const source = this.expect("IDENT");
+          modifiers.push({
+            type: "atcode",
+            name: "each",
+            body: `${item.value} in ${source.value}`,
+          });
+          continue;
+        }
+
         throw this.errorAt(
           `Atcode @${nameToken.value} not yet supported in modifiers`,
           nameToken,

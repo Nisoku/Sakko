@@ -126,5 +126,23 @@ export function parseInlineModifier(parser: ParserState): Modifier {
     };
   }
 
+  // @each item in source (inline, limited: source is signal name)
+  if (name === "each") {
+    const item = parser.expect("IDENT");
+    const inToken = parser.expect("IDENT", "Expected 'in' in @each expression");
+    if (inToken.value !== "in") {
+      throw parser.errorAt(
+        `Expected 'in' in @each expression, got '${inToken.value}'`,
+        inToken,
+      );
+    }
+    const source = parser.expect("IDENT");
+    return {
+      type: "atcode",
+      name: "each",
+      body: `${item.value} in ${source.value}`,
+    };
+  }
+
   throw parser.errorAt(`Unknown modifier: @${name}`, nameToken);
 }
