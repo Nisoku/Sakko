@@ -6,29 +6,28 @@ Thanks for your interest in contributing!
 
 1. Fork the repository
 2. Clone your fork: `git clone https://github.com/your-username/Sakko.git`
-3. Install dependencies: `cd Build && npm install`
+3. Install Rust via [rustup](https://rustup.rs) (the pinned toolchain in `rust-toolchain.toml` is used automatically)
 4. Create a feature branch: `git checkout -b feat/your-feature`
 
 ## Development
 
 ```bash
-cd Build
-npm run dev      # watch mode
-npm test         # run tests
-npm run lint     # check lint
-npm run typecheck  # type-check
+cargo build      # build the workspace
+cargo test       # run tests
+cargo clippy     # lint
+cargo fmt        # format
 ```
 
 ## Pull Requests
 
 - Keep changes focused. One feature or fix per PR.
 - Add tests for new functionality
-- Ensure all checks pass (test, lint, typecheck, build)
+- Ensure all checks pass (`cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`)
 - Update CHANGELOG.md if applicable
 
 ## Code Style
 
-- ESLint and Prettier are configured. Run `npm run make-pretty` before committing.
+- `rustfmt` and `clippy` are the source of truth and CI enforces both with warnings as errors.
 - Follow the existing patterns in the codebase
 - Avoid adding comments unless necessary for clarity
 

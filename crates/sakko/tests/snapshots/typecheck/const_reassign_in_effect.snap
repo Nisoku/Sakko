@@ -1,0 +1,5 @@
+error[SKT012]: cannot reassign constant 'flag'
+  --> @effect at line 4, col 3
+   |
+ 2 | flag=false
+   | ^^^^

@@ -12,7 +12,6 @@
 
 ## Checklist
 
-- [ ] Tests pass (`npm test`)
-- [ ] Lint passes (`npm run lint`)
-- [ ] Typecheck passes (`npm run typecheck`)
-- [ ] Build passes (`npm run build`)
+- [ ] Tests pass (`cargo test`)
+- [ ] Lint passes (`cargo clippy -- -D warnings`)
+- [ ] Formatting passes (`cargo fmt --check`)

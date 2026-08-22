@@ -1,0 +1,5 @@
+error[SKT008]: 'usrname' is not a declared state or derived variable
+  --> @bind
+   |
+ 1 | usrname
+   | ^^^^^^^
