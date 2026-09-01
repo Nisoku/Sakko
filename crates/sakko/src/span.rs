@@ -16,6 +16,11 @@ impl Span {
             end: end as u32,
         }
     }
+
+    /// Span covering the entire string, used for whole-snippet diagnostics.
+    pub fn whole(src: &str) -> Self {
+        Self::new(0, src.len())
+    }
 }
 
 /// Precomputed newline positions for fast `byte offset -> (line, col)` lookups.

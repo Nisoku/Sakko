@@ -1,5 +1,5 @@
-use sakko::token::TokenKind as K;
-use sakko::token::{Token, TokenKind};
+use sakko::syntax::token::TokenKind as K;
+use sakko::syntax::token::{Token, TokenKind};
 use sakko::tokenize;
 
 fn sig(t: &Token) -> (TokenKind, String, u32, u32) {

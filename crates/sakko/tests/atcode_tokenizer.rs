@@ -1,4 +1,4 @@
-use sakko::token::TokenKind as K;
+use sakko::syntax::token::TokenKind as K;
 use sakko::tokenize;
 
 #[test]

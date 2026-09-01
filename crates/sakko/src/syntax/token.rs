@@ -73,41 +73,6 @@ impl TokenKind {
             TokenKind::Percent => "PERCENT",
         }
     }
-
-    /// The canonical single-character spelling used by the TS tokenizer's
-    /// `value` field for symbol tokens.
-    pub fn symbol_str(self) -> Option<&'static str> {
-        Some(match self {
-            TokenKind::Lt => "<",
-            TokenKind::Gt => ">",
-            TokenKind::Lbrace => "{",
-            TokenKind::Rbrace => "}",
-            TokenKind::Lparen => "(",
-            TokenKind::Rparen => ")",
-            TokenKind::Lbracket => "[",
-            TokenKind::Rbracket => "]",
-            TokenKind::Colon => ":",
-            TokenKind::Semi => ";",
-            TokenKind::Comma => ",",
-            TokenKind::At => "@",
-            TokenKind::Equals => "=",
-            TokenKind::Dot => ".",
-            TokenKind::Plus => "+",
-            TokenKind::Minus => "-",
-            TokenKind::Star => "*",
-            TokenKind::Pipe => "|",
-            TokenKind::Ampersand => "&",
-            TokenKind::Bang => "!",
-            TokenKind::Question => "?",
-            TokenKind::Percent => "%",
-            TokenKind::Ident
-            | TokenKind::String
-            | TokenKind::BacktickString
-            | TokenKind::InterpStart
-            | TokenKind::InterpEnd
-            | TokenKind::Expr => return None,
-        })
-    }
 }
 
 /// A lexed token. `value` borrows from the source input unless escape

@@ -1,11 +1,11 @@
-use sakko::expr;
+use sakko::saho;
 
 /// Assert `parse` succeeds and lowering reproduces the (trimmed) source.
 fn roundtrip(src: &str) {
     let trimmed = src.trim();
-    let node = expr::parse(trimmed)
+    let node = saho::parse(trimmed)
         .unwrap_or_else(|e| panic!("parse failed for {trimmed:?}: {} {:?}", e.message, e.span));
-    let out = expr::lower(&node, trimmed);
+    let out = saho::lower(&node, trimmed);
     assert_eq!(out, trimmed, "round-trip mismatch");
 }
 
@@ -122,27 +122,27 @@ fn arrows_functions_parens() {
 #[test]
 fn control_flow_bodies() {
     // Single-expression bodies via parse_body
-    let stmts = expr::parse_body("count + 1;").unwrap_or_else(|d| panic!("diags: {d:?}"));
+    let stmts = saho::parse_body("count + 1;").unwrap_or_else(|d| panic!("diags: {d:?}"));
     assert_eq!(stmts.len(), 1);
 
-    let stmts = expr::parse_body("let total = 0; total += item.price;")
+    let stmts = saho::parse_body("let total = 0; total += item.price;")
         .unwrap_or_else(|d| panic!("diags: {d:?}"));
     assert_eq!(stmts.len(), 2);
 
-    let stmts = expr::parse_body("return found;").unwrap_or_else(|d| panic!("diags: {d:?}"));
+    let stmts = saho::parse_body("return found;").unwrap_or_else(|d| panic!("diags: {d:?}"));
     assert_eq!(stmts.len(), 1);
 
     // Multi-statement recovery: a bad statement produces a diagnostic but
     // parsing resumes on the next segment.
-    let diags = expr::parse_body("ok = true; let ; done = yes;").expect_err("should have diags");
+    let diags = saho::parse_body("ok = true; let ; done = yes;").expect_err("should have diags");
     assert_eq!(diags.len(), 1);
     assert!(diags[0].message.contains("let"));
-    assert!(expr::parse_body("done = yes;").is_ok());
+    assert!(saho::parse_body("done = yes;").is_ok());
 
     // Bare declaration keywords are rejected as statements...
     for kw in ["let", "const", "var"] {
         assert!(
-            expr::parse_body(kw).is_err(),
+            saho::parse_body(kw).is_err(),
             "bare `{kw}` must not parse as an expression statement"
         );
     }
@@ -176,7 +176,7 @@ fn rejected_sources() {
         if src.trim().is_empty() {
             continue;
         }
-        assert!(expr::parse(src).is_err(), "expected {src:?} to be rejected");
+        assert!(saho::parse(src).is_err(), "expected {src:?} to be rejected");
     }
 }
 
@@ -195,14 +195,14 @@ fn raw_js_blocks_roundtrip() {
     roundtrip("js { return window.innerWidth }");
     roundtrip("js { if (a) { b(); } }");
     roundtrip("js { const s = \"no { fake } brace\"; return s; }");
-    let node = expr::parse("js { // comment }\nreturn 1; }").unwrap();
-    assert!(matches!(node.kind, expr::EKind::RawJs));
+    let node = saho::parse("js { // comment }\nreturn 1; }").unwrap();
+    assert!(matches!(node.kind, saho::EKind::RawJs));
 }
 
 #[test]
 fn strict_equality_ops_are_banned() {
     for src in ["a === b", "a !== b"] {
-        let err = expr::parse(src).expect_err("should reject strict equality");
+        let err = saho::parse(src).expect_err("should reject strict equality");
         assert!(err.message.contains("'==' is already strict"));
     }
 }

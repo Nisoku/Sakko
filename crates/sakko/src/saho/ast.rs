@@ -218,16 +218,6 @@ pub enum UnaryOp {
 }
 
 impl UnaryOp {
-    pub fn from_kw(s: &str) -> Option<Self> {
-        Some(match s {
-            "typeof" => Self::Typeof,
-            "void" => Self::Void,
-            "delete" => Self::Delete,
-            "await" => Self::Await,
-            _ => return None,
-        })
-    }
-
     pub fn symbol(self) -> &'static str {
         match self {
             Self::Neg => "-",
@@ -246,6 +236,15 @@ impl UnaryOp {
 pub enum UpdateOp {
     Inc,
     Dec,
+}
+
+impl UpdateOp {
+    pub fn symbol(self) -> &'static str {
+        match self {
+            Self::Inc => "++",
+            Self::Dec => "--",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -297,31 +296,32 @@ impl BinOp {
         matches!(self, Self::Pow)
     }
 
-    pub fn from_punct(p: &str) -> Option<Self> {
-        Some(match p {
-            "??" => Self::Nullish,
-            "||" => Self::Or,
-            "&&" => Self::And,
-            "|" => Self::BitOr,
-            "^" => Self::BitXor,
-            "&" => Self::BitAnd,
-            "==" => Self::EqEq,
-            "!=" => Self::NotEq,
-            "<" => Self::Lt,
-            ">" => Self::Gt,
-            "<=" => Self::LtE,
-            ">=" => Self::GtE,
-            "<<" => Self::Shl,
-            ">>" => Self::Shr,
-            ">>>" => Self::UShr,
-            "+" => Self::Add,
-            "-" => Self::Sub,
-            "*" => Self::Mul,
-            "/" => Self::Div,
-            "%" => Self::Rem,
-            "**" => Self::Pow,
-            _ => return None,
-        })
+    pub fn symbol(self) -> &'static str {
+        match self {
+            Self::Nullish => "??",
+            Self::Or => "||",
+            Self::And => "&&",
+            Self::BitOr => "|",
+            Self::BitXor => "^",
+            Self::BitAnd => "&",
+            Self::EqEq => "==",
+            Self::NotEq => "!=",
+            Self::Lt => "<",
+            Self::Gt => ">",
+            Self::LtE => "<=",
+            Self::GtE => ">=",
+            Self::In => "in",
+            Self::Instanceof => "instanceof",
+            Self::Shl => "<<",
+            Self::Shr => ">>",
+            Self::UShr => ">>>",
+            Self::Add => "+",
+            Self::Sub => "-",
+            Self::Mul => "*",
+            Self::Div => "/",
+            Self::Rem => "%",
+            Self::Pow => "**",
+        }
     }
 }
 
@@ -346,25 +346,44 @@ pub enum AssignOp {
 }
 
 impl AssignOp {
-    pub fn from_punct(p: &str) -> Option<Self> {
-        Some(match p {
-            "=" => Self::Assign,
-            "+=" => Self::Add,
-            "-=" => Self::Sub,
-            "*=" => Self::Mul,
-            "/=" => Self::Div,
-            "%=" => Self::Rem,
-            "**=" => Self::Pow,
-            "<<=" => Self::Shl,
-            ">>=" => Self::Shr,
-            ">>>=" => Self::UShr,
-            "&=" => Self::BitAnd,
-            "|=" => Self::BitOr,
-            "^=" => Self::BitXor,
-            "&&=" => Self::And,
-            "||=" => Self::Or,
-            "??=" => Self::Nullish,
-            _ => return None,
-        })
+    pub fn symbol(self) -> &'static str {
+        match self {
+            Self::Assign => "=",
+            Self::Add => "+=",
+            Self::Sub => "-=",
+            Self::Mul => "*=",
+            Self::Div => "/=",
+            Self::Rem => "%=",
+            Self::Pow => "**=",
+            Self::Shl => "<<=",
+            Self::Shr => ">>=",
+            Self::UShr => ">>>=",
+            Self::BitAnd => "&=",
+            Self::BitOr => "|=",
+            Self::BitXor => "^=",
+            Self::And => "&&=",
+            Self::Or => "||=",
+            Self::Nullish => "??=",
+        }
     }
 }
+
+/// Every assignment operator; the parser builds its matcher from this table.
+pub const ASSIGN_OPS: &[AssignOp] = &[
+    AssignOp::Assign,
+    AssignOp::Add,
+    AssignOp::Sub,
+    AssignOp::Mul,
+    AssignOp::Div,
+    AssignOp::Rem,
+    AssignOp::Pow,
+    AssignOp::Shl,
+    AssignOp::Shr,
+    AssignOp::UShr,
+    AssignOp::BitAnd,
+    AssignOp::BitOr,
+    AssignOp::BitXor,
+    AssignOp::And,
+    AssignOp::Or,
+    AssignOp::Nullish,
+];

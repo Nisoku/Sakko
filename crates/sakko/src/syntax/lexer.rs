@@ -1,6 +1,6 @@
 use crate::error::{Result, SakkoError};
 use crate::span::Span;
-use crate::token::{Token, TokenKind};
+use crate::syntax::token::{Token, TokenKind};
 use std::borrow::Cow;
 
 /// Map a single escape character to its runtime value.
@@ -44,7 +44,9 @@ pub fn tokenize(input: &str) -> Result<Vec<Token<'_>>> {
     let mut col = 1u32;
 
     while i < len {
-        let ch = char_at(input, i).unwrap();
+        let Some(ch) = char_at(input, i) else {
+            break;
+        };
 
         if ch == '\n' {
             i += 1;
@@ -87,9 +89,8 @@ pub fn tokenize(input: &str) -> Result<Vec<Token<'_>>> {
             // '<' comes before the newline: don't treat as a comment.
         }
 
-        if let Some(kind) = symbol_kind(ch) {
+        if let Some((kind, value)) = symbol_token(ch) {
             let start = i;
-            let value = kind.symbol_str().unwrap();
             tokens.push(Token {
                 kind,
                 value: Cow::Borrowed(value),
@@ -134,13 +135,17 @@ pub fn tokenize(input: &str) -> Result<Vec<Token<'_>>> {
             while i < len && !input[i..].starts_with(quote) {
                 if input[i..].starts_with('\\') && i + 1 < len {
                     let dst = owned.get_or_insert_with(|| String::from(&input[start_byte + 1..i]));
-                    let esc = char_at(input, i + 1).unwrap();
+                    let Some(esc) = char_at(input, i + 1) else {
+                        break;
+                    };
                     dst.push_str(&handle_escape_sequence(esc));
                     i += 1 + esc.len_utf8();
                     col += 2;
                     continue;
                 }
-                let c = char_at(input, i).unwrap();
+                let Some(c) = char_at(input, i) else {
+                    break;
+                };
                 if let Some(dst) = owned.as_mut() {
                     dst.push(c);
                 }
@@ -183,8 +188,11 @@ pub fn tokenize(input: &str) -> Result<Vec<Token<'_>>> {
         if is_ident_char(ch) {
             let start = i;
             let start_col = col;
-            while i < len && char_at(input, i).is_some_and(is_ident_char) {
-                i += char_at(input, i).unwrap().len_utf8();
+            while let Some(c) = char_at(input, i) {
+                if !is_ident_char(c) {
+                    break;
+                }
+                i += c.len_utf8();
                 col += 1;
             }
             tokens.push(Token {
@@ -207,30 +215,30 @@ pub fn tokenize(input: &str) -> Result<Vec<Token<'_>>> {
     Ok(tokens)
 }
 
-fn symbol_kind(c: char) -> Option<TokenKind> {
+fn symbol_token(c: char) -> Option<(TokenKind, &'static str)> {
     Some(match c {
-        '<' => TokenKind::Lt,
-        '>' => TokenKind::Gt,
-        '{' => TokenKind::Lbrace,
-        '}' => TokenKind::Rbrace,
-        '(' => TokenKind::Lparen,
-        ')' => TokenKind::Rparen,
-        '[' => TokenKind::Lbracket,
-        ']' => TokenKind::Rbracket,
-        ':' => TokenKind::Colon,
-        ';' => TokenKind::Semi,
-        ',' => TokenKind::Comma,
-        '@' => TokenKind::At,
-        '=' => TokenKind::Equals,
-        '.' => TokenKind::Dot,
-        '+' => TokenKind::Plus,
-        '-' => TokenKind::Minus,
-        '*' => TokenKind::Star,
-        '|' => TokenKind::Pipe,
-        '&' => TokenKind::Ampersand,
-        '!' => TokenKind::Bang,
-        '?' => TokenKind::Question,
-        '%' => TokenKind::Percent,
+        '<' => (TokenKind::Lt, "<"),
+        '>' => (TokenKind::Gt, ">"),
+        '{' => (TokenKind::Lbrace, "{"),
+        '}' => (TokenKind::Rbrace, "}"),
+        '(' => (TokenKind::Lparen, "("),
+        ')' => (TokenKind::Rparen, ")"),
+        '[' => (TokenKind::Lbracket, "["),
+        ']' => (TokenKind::Rbracket, "]"),
+        ':' => (TokenKind::Colon, ":"),
+        ';' => (TokenKind::Semi, ";"),
+        ',' => (TokenKind::Comma, ","),
+        '@' => (TokenKind::At, "@"),
+        '=' => (TokenKind::Equals, "="),
+        '.' => (TokenKind::Dot, "."),
+        '+' => (TokenKind::Plus, "+"),
+        '-' => (TokenKind::Minus, "-"),
+        '*' => (TokenKind::Star, "*"),
+        '|' => (TokenKind::Pipe, "|"),
+        '&' => (TokenKind::Ampersand, "&"),
+        '!' => (TokenKind::Bang, "!"),
+        '?' => (TokenKind::Question, "?"),
+        '%' => (TokenKind::Percent, "%"),
         _ => return None,
     })
 }
@@ -288,6 +296,9 @@ fn tokenize_string_with_interpolation(
             let expr_start_col = current_col;
 
             while i < len && brace_depth > 0 {
+                let Some(c) = char_at(input, i) else {
+                    break;
+                };
                 if input[i..].starts_with('{') {
                     brace_depth += 1;
                 }
@@ -295,7 +306,7 @@ fn tokenize_string_with_interpolation(
                     brace_depth -= 1;
                 }
                 if brace_depth > 0 {
-                    expr.push(char_at(input, i).unwrap());
+                    expr.push(c);
                 }
                 if input[i..].starts_with('\n') {
                     current_line += 1;
@@ -303,7 +314,7 @@ fn tokenize_string_with_interpolation(
                 } else {
                     current_col += 1;
                 }
-                i += char_at(input, i).unwrap().len_utf8();
+                i += c.len_utf8();
             }
 
             if brace_depth > 0 {
@@ -341,14 +352,18 @@ fn tokenize_string_with_interpolation(
             }
             i += 1;
             current_col += 1;
-            let esc = char_at(input, i).unwrap();
+            let Some(esc) = char_at(input, i) else {
+                break;
+            };
             text_buffer.push_str(&handle_escape_sequence(esc));
             current_col += 1;
             i += esc.len_utf8();
             continue;
         }
 
-        let c = char_at(input, i).unwrap();
+        let Some(c) = char_at(input, i) else {
+            break;
+        };
         if text_buffer.is_empty() {
             text_part_start = i;
         }

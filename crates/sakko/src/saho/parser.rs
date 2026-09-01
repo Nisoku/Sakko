@@ -10,7 +10,7 @@ use chumsky::{
 };
 
 use super::ast::{
-    Arg, AssignOp, BinOp, Body, EKind, Key, Node, ObjPatProp, ObjProp, Pat, Stmt,
+    ASSIGN_OPS, Arg, AssignOp, BinOp, Body, EKind, Key, Node, ObjPatProp, ObjProp, Pat, Stmt,
     TplPart as TplPartAst, TypeAst, UnaryOp, UpdateOp, VarKw,
 };
 use super::lexer::{ETok, Subst, TplPart};
@@ -290,6 +290,33 @@ where
     just(ETok::Punct(sym)).to(())
 }
 
+/// Match a binary operator by its canonical token spelling.
+#[allow(clippy::redundant_closure_for_method_calls)]
+fn bop<'a, I>(op: BinOp) -> impl Parser<'a, I, BinOp, Ex<'a>> + Clone
+where
+    I: BorrowInput<'a, Token = ETok, Span = SP>,
+{
+    just(ETok::Punct(op.symbol())).to(op)
+}
+
+/// Match a unary operator's punctuation form by its canonical spelling.
+#[allow(clippy::redundant_closure_for_method_calls)]
+fn un_op<'a, I>(op: UnaryOp) -> impl Parser<'a, I, PreOp, Ex<'a>> + Clone
+where
+    I: BorrowInput<'a, Token = ETok, Span = SP>,
+{
+    just(ETok::Punct(op.symbol())).to(PreOp::Unary(op))
+}
+
+/// Match an update operator (`++` / `--`) by its canonical spelling.
+#[allow(clippy::redundant_closure_for_method_calls)]
+fn upd_op<'a, I>(op: UpdateOp) -> impl Parser<'a, I, UpdateOp, Ex<'a>> + Clone
+where
+    I: BorrowInput<'a, Token = ETok, Span = SP>,
+{
+    just(ETok::Punct(op.symbol())).to(op)
+}
+
 fn mk_pat<'a, I, E>(expr: E) -> impl Parser<'a, I, Pat, Ex<'a>> + Clone
 where
     I: BorrowInput<'a, Token = ETok, Span = SP>,
@@ -425,7 +452,7 @@ where
             .collect::<Vec<_>>()
             .delimited_by(punct("{"), punct("}"));
 
-        // ----- shared pieces -----
+        // shared pieces
         let call_args = choice((
             punct("...").ignore_then(expr.clone()).map(Arg::Spread),
             expr.clone().map(Arg::Plain),
@@ -643,12 +670,12 @@ where
                     paren_arrow.clone(),
                     obj_lit,
                     array_lit,
-                    paren_group.try_map(|elems, span| match elems.len() {
+                    paren_group.try_map(|mut elems, span| match elems.len() {
                         0 => Err(Rich::custom(span, "empty parentheses")),
-                        1 => Ok(node(
-                            EKind::Paren(Box::new(elems.into_iter().next().unwrap())),
-                            span,
-                        )),
+                        1 => {
+                            let single = elems.remove(0);
+                            Ok(node(EKind::Paren(Box::new(single)), span))
+                        }
                         _ => Ok(node(EKind::Seq(elems), span)),
                     }),
                     select_ref! { ETok::Ident(s) => s.clone() }
@@ -683,8 +710,8 @@ where
                                 .map_err(|msg| Rich::custom(span, msg))
                         })
                         .map(PostOp::Tpl),
-                    punct("++").to(PostOp::Update(UpdateOp::Inc)),
-                    punct("--").to(PostOp::Update(UpdateOp::Dec)),
+                    upd_op(UpdateOp::Inc).map(PostOp::Update),
+                    upd_op(UpdateOp::Dec).map(PostOp::Update),
                     just(kw("as")).ignore_then(as_type).map(PostOp::As),
                 ));
 
@@ -730,16 +757,16 @@ where
         };
 
         let pre_op = choice((
-            punct("!").to(PreOp::Unary(UnaryOp::Not)),
-            punct("~").to(PreOp::Unary(UnaryOp::BitNot)),
-            punct("-").to(PreOp::Unary(UnaryOp::Neg)),
-            punct("+").to(PreOp::Unary(UnaryOp::Pos)),
+            un_op(UnaryOp::Not),
+            un_op(UnaryOp::BitNot),
+            un_op(UnaryOp::Neg),
+            un_op(UnaryOp::Pos),
             just(kw("typeof")).to(PreOp::Unary(UnaryOp::Typeof)),
             just(kw("void")).to(PreOp::Unary(UnaryOp::Void)),
             just(kw("delete")).to(PreOp::Unary(UnaryOp::Delete)),
             just(kw("await")).to(PreOp::Unary(UnaryOp::Await)),
-            punct("++").to(PreOp::Update(UpdateOp::Inc)),
-            punct("--").to(PreOp::Update(UpdateOp::Dec)),
+            upd_op(UpdateOp::Inc).map(PreOp::Update),
+            upd_op(UpdateOp::Dec).map(PreOp::Update),
         ));
 
         let bin_fold = |lhs, op, rhs, e: &mut chumsky::input::MapExtra<'a, '_, I, Ex<'a>>| {
@@ -772,40 +799,32 @@ where
                 ),
             })
             .boxed(),
-            infix(right(15u16), punct("**").to(BinOp::Pow), bin_fold).boxed(),
+            infix(right(15u16), bop(BinOp::Pow), bin_fold).boxed(),
             infix(
                 left(14u16),
-                choice((
-                    punct("*").to(BinOp::Mul),
-                    punct("/").to(BinOp::Div),
-                    punct("%").to(BinOp::Rem),
-                )),
+                choice((bop(BinOp::Mul), bop(BinOp::Div), bop(BinOp::Rem))),
                 bin_fold,
             )
             .boxed(),
             infix(
                 left(13u16),
-                choice((punct("+").to(BinOp::Add), punct("-").to(BinOp::Sub))),
+                choice((bop(BinOp::Add), bop(BinOp::Sub))),
                 bin_fold,
             )
             .boxed(),
             infix(
                 left(12u16),
-                choice((
-                    punct("<<").to(BinOp::Shl),
-                    punct(">>").to(BinOp::Shr),
-                    punct(">>>").to(BinOp::UShr),
-                )),
+                choice((bop(BinOp::Shl), bop(BinOp::Shr), bop(BinOp::UShr))),
                 bin_fold,
             )
             .boxed(),
             infix(
                 left(11u16),
                 choice((
-                    punct("<").to(BinOp::Lt),
-                    punct(">").to(BinOp::Gt),
-                    punct("<=").to(BinOp::LtE),
-                    punct(">=").to(BinOp::GtE),
+                    bop(BinOp::Lt),
+                    bop(BinOp::Gt),
+                    bop(BinOp::LtE),
+                    bop(BinOp::GtE),
                     just(kw("in")).to(BinOp::In),
                     just(kw("instanceof")).to(BinOp::Instanceof),
                 )),
@@ -814,16 +833,16 @@ where
             .boxed(),
             infix(
                 left(10u16),
-                choice((punct("==").to(BinOp::EqEq), punct("!=").to(BinOp::NotEq))),
+                choice((bop(BinOp::EqEq), bop(BinOp::NotEq))),
                 bin_fold,
             )
             .boxed(),
-            infix(left(9u16), punct("&").to(BinOp::BitAnd), bin_fold).boxed(),
-            infix(left(8u16), punct("^").to(BinOp::BitXor), bin_fold).boxed(),
-            infix(left(7u16), punct("|").to(BinOp::BitOr), bin_fold).boxed(),
-            infix(left(6u16), punct("&&").to(BinOp::And), bin_fold).boxed(),
-            infix(left(5u16), punct("||").to(BinOp::Or), bin_fold).boxed(),
-            infix(left(5u16), punct("??").to(BinOp::Nullish), bin_fold).boxed(),
+            infix(left(9u16), bop(BinOp::BitAnd), bin_fold).boxed(),
+            infix(left(8u16), bop(BinOp::BitXor), bin_fold).boxed(),
+            infix(left(7u16), bop(BinOp::BitOr), bin_fold).boxed(),
+            infix(left(6u16), bop(BinOp::And), bin_fold).boxed(),
+            infix(left(5u16), bop(BinOp::Or), bin_fold).boxed(),
+            infix(left(5u16), bop(BinOp::Nullish), bin_fold).boxed(),
         ]);
 
         let cond = pratted
@@ -846,10 +865,13 @@ where
                 None => test,
             });
 
-        // ----- assignment layer -----
-        let assign_op = select_ref! { ETok::Punct(s) if AssignOp::from_punct(s).is_some() =>
-            AssignOp::from_punct(s).unwrap_or(AssignOp::Assign)
-        };
+        // assignment layer (driven by the ASSIGN_OPS table)
+        let assign_op = choice(
+            ASSIGN_OPS
+                .iter()
+                .map(|op| just(ETok::Punct(op.symbol())).to(*op))
+                .collect::<Vec<_>>(),
+        );
         cond.then(assign_op.then(expr).or_not())
             .map_with(|(target, rhs), e| match rhs {
                 Some((op, value)) => node(

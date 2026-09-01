@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Crate refactor
+
+Internal restructuring of the `sakko` crate with no public API changes:
+
+- `sakko::expr` renamed to `sakko::saho`; the flat `{lexer,parser,ast,token}`
+  modules now live under `sakko::syntax`, split into focused submodules
+  (`syntax::parser::{text,elements,modifiers,atcodes}`,
+  `typecheck::{checker,driver,report}`).
+- Operator spellings have a single source of truth (`symbol()` methods plus
+  an `ASSIGN_OPS` table driving both AST conversion and parsing).
+- Hard-denied `clippy::unwrap_used` / `expect_used` / `panic`; all
+  fallible lexer/parser paths now propagate errors instead. Unit tests for
+  the type lattice moved to an integration test target.
+
 ### RiiR: the compiler is now Rust
 
 The TypeScript toolchain (Build/, goldens, differential tests, Node CI) is
