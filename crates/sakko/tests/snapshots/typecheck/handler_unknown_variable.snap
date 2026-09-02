@@ -1,0 +1,5 @@
+error[SKT001]: unknown identifier 'cont'
+  --> @on:click
+   |
+ 1 | cont++
+   | ^^^^
