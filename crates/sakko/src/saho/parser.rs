@@ -34,14 +34,14 @@ fn kw(s: &'static str) -> ETok {
 }
 
 /// Resolve a raw template token into AST parts by recursively parsing each
-/// substitution source.
-fn resolve_template(parts: Vec<TplPart>) -> Result<Vec<TplPartAst>, String> {
+/// substitution source. `depth` is the current template-nesting depth.
+fn resolve_template(parts: Vec<TplPart>, depth: usize) -> Result<Vec<TplPartAst>, String> {
     let mut out = Vec::with_capacity(parts.len());
     for part in parts {
         match part {
             TplPart::Quasi(text) => out.push(TplPartAst::Quasi(text)),
             TplPart::Subst(Subst { text, abs }) => {
-                let inner = super::parse_substitution(&text).map_err(|e| {
+                let inner = super::parse_substitution(&text, depth).map_err(|e| {
                     format!(
                         "{} (at byte {} of enclosing source)",
                         e.message,
@@ -479,7 +479,10 @@ enum PostOp {
 }
 
 /// Build the shared grammar: `(expression entry, statement-body entry)`.
-pub(super) fn grammar<'a, I>() -> (
+/// `depth` is the template-nesting depth at this entry point.
+pub(super) fn grammar<'a, I>(
+    depth: usize,
+) -> (
     impl Parser<'a, I, Node, Ex<'a>> + Clone,
     impl Parser<'a, I, Vec<Stmt>, Ex<'a>> + Clone,
 )
@@ -505,7 +508,7 @@ where
 
         let tpl_tok = select_ref! { ETok::Template(parts) => parts.clone() };
         let tpl_node = tpl_tok.try_map(move |parts: RawTpl, span| {
-            resolve_template(parts)
+            resolve_template(parts, depth)
                 .map(|resolved| Node {
                     kind: EKind::Template(resolved),
                     span: sp(span),
@@ -766,7 +769,7 @@ where
                     call_args.map(|args| PostOp::Call(args, false)),
                     tpl_tok
                         .try_map(move |parts: RawTpl, span| {
-                            resolve_template(parts)
+                            resolve_template(parts, depth)
                                 .map(|resolved| Node {
                                     kind: EKind::Template(resolved),
                                     span: sp(span),

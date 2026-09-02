@@ -12,13 +12,7 @@ pub use ast::{
 };
 pub use lexer::{ETok, ExprDiag};
 
-use std::cell::Cell;
-
 use chumsky::{Parser, input::Input, span::SimpleSpan};
-
-thread_local! {
-    static TEMPLATE_DEPTH: Cell<usize> = const { Cell::new(0) };
-}
 
 const MAX_TEMPLATE_DEPTH: usize = 64;
 
@@ -51,13 +45,17 @@ fn reject_banned_eq(toks: &[(ETok, SimpleSpan)]) -> Result<(), ExprDiag> {
 /// Parse a single expression source; top-level comma sequences become
 /// [`EKind::Seq`].
 pub fn parse(src: &str) -> Result<Node, ExprDiag> {
+    parse_with_depth(src, 0)
+}
+
+fn parse_with_depth(src: &str, depth: usize) -> Result<Node, ExprDiag> {
     let raw = lexer::lex(src)?;
     let toks = to_input_tokens(raw);
     reject_banned_eq(&toks)?;
     let len = src.len();
     let eoi: SimpleSpan = (len..len).into();
 
-    let (out, errs) = parser::grammar()
+    let (out, errs) = parser::grammar(depth)
         .0
         .parse(toks.as_slice().map(eoi, |(t, s)| (t, s)))
         .into_output_errors();
@@ -129,7 +127,7 @@ pub fn parse_body(src: &str) -> Result<Vec<Stmt>, Vec<ExprDiag>> {
         if segment.is_empty() {
             continue;
         }
-        let (stmt, errs) = parser::grammar()
+        let (stmt, errs) = parser::grammar(0)
             .1
             .parse(segment.map(eoi, |(t, s)| (t, s)))
             .into_output_errors();
@@ -147,20 +145,16 @@ pub fn parse_body(src: &str) -> Result<Vec<Stmt>, Vec<ExprDiag>> {
 }
 
 /// Parse a template substitution source; used recursively by the grammar.
-pub(crate) fn parse_substitution(src: &str) -> Result<Node, ExprDiag> {
-    TEMPLATE_DEPTH.with(|depth| {
-        let current = depth.get();
-        if current >= MAX_TEMPLATE_DEPTH {
-            return Err(ExprDiag::new(
-                crate::span::Span::new(0, src.len()),
-                "template literal nested too deeply",
-            ));
-        }
-        depth.set(current + 1);
-        let result = parse(src);
-        depth.set(current);
-        result
-    })
+/// `depth` is the current template-nesting depth (0 at the top level); it
+/// guards against cyclic self-interpolation, capping at `MAX_TEMPLATE_DEPTH`.
+pub(crate) fn parse_substitution(src: &str, depth: usize) -> Result<Node, ExprDiag> {
+    if depth >= MAX_TEMPLATE_DEPTH {
+        return Err(ExprDiag::new(
+            crate::span::Span::new(0, src.len()),
+            "template literal nested too deeply",
+        ));
+    }
+    parse_with_depth(src, depth + 1)
 }
 
 fn rich_to_diag(err: chumsky::error::Rich<'_, ETok, SimpleSpan>) -> ExprDiag {
