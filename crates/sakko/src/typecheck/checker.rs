@@ -64,6 +64,7 @@ pub(crate) struct Checker {
     snippet: String,
     memos: HashMap<(u32, u32), Ty>,
     sigs: HashMap<(u32, u32), Ty>,
+    class_mode: bool,
 }
 
 impl Checker {
@@ -80,7 +81,13 @@ impl Checker {
             snippet: snippet.to_string(),
             memos: HashMap::new(),
             sigs: HashMap::new(),
+            class_mode: false,
         }
+    }
+
+    pub(crate) fn with_class_mode(mut self) -> Self {
+        self.class_mode = true;
+        self
     }
 
     pub(crate) fn report(
@@ -315,12 +322,16 @@ impl Checker {
             Some(Resolved::Var(b)) => b.ty,
             Some(Resolved::Ns(_)) => Ty::Function,
             None => {
-                self.report(
-                    Code::UnknownIdent,
-                    node.span,
-                    format!("unknown identifier '{name}'"),
-                );
-                Ty::Any
+                if self.class_mode {
+                    Ty::Str
+                } else {
+                    self.report(
+                        Code::UnknownIdent,
+                        node.span,
+                        format!("unknown identifier '{name}'"),
+                    );
+                    Ty::Any
+                }
             }
         }
     }
@@ -665,6 +676,19 @@ impl Checker {
             Stmt::Return(e) => {
                 if let Some(e) = e {
                     self.infer(e, sc);
+                }
+            }
+            Stmt::If {
+                test,
+                then_block,
+                else_block,
+            } => {
+                self.infer(test, sc);
+                for block in then_block
+                    .iter()
+                    .chain(else_block.iter().flat_map(|b| b.iter()))
+                {
+                    self.check_stmt(block, sc);
                 }
             }
         }

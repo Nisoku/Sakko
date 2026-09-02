@@ -47,6 +47,7 @@ codes! {
     ConstReassign => "SKT012",
     UnknownUse => "SKT013",
     ImpossibleCast => "SKT014",
+    BadClassType => "SKT015",
 }
 
 #[derive(Debug, Clone)]

@@ -1,6 +1,6 @@
 use sakko::{
-    AstNode, AtcodeDeclaration, InlineValue, InterpolatedText, InterpolatedTextPart, Modifier,
-    parse_sakko,
+    AstNode, AtcodeBody, AtcodeDeclaration, BlockSnippet, ExprSnippet, InlineValue,
+    InterpolatedText, InterpolatedTextPart, Modifier, parse_sakko,
 };
 
 fn expect_inline<'a>(node: &'a AstNode<'a>) -> (&'a str, &'a [Modifier<'a>], &'a InlineValue<'a>) {
@@ -24,9 +24,11 @@ fn parses_state_declaration() {
         AtcodeDeclaration::State { declarations, .. } => {
             assert_eq!(declarations.len(), 2);
             assert_eq!(declarations[0].name.as_ref(), "count");
-            assert_eq!(declarations[0].value.as_ref(), "0");
+            assert_eq!(declarations[0].value.raw.as_ref(), "0");
+            assert!(declarations[0].value.parsed.is_some());
             assert_eq!(declarations[1].name.as_ref(), "step");
-            assert_eq!(declarations[1].value.as_ref(), "1");
+            assert_eq!(declarations[1].value.raw.as_ref(), "1");
+            assert!(declarations[1].value.parsed.is_some());
         }
         other => panic!("expected state declaration, got {:?}", other),
     }
@@ -41,7 +43,8 @@ fn parses_effect_declaration() {
     assert_eq!(ast.declarations.len(), 2);
     match &ast.declarations[1] {
         AtcodeDeclaration::Effect { body, .. } => {
-            assert_eq!(&**body, "console.log(\"Count:\",count)");
+            assert_eq!(body.raw.as_ref(), "console.log(\"Count:\",count)");
+            assert!(body.parsed.is_some());
         }
         other => panic!("expected effect declaration, got {:?}", other),
     }
@@ -58,7 +61,8 @@ fn parses_derived_declaration() {
         AtcodeDeclaration::Derived { declarations, .. } => {
             assert_eq!(declarations.len(), 1);
             assert_eq!(declarations[0].name.as_ref(), "count");
-            assert_eq!(declarations[0].expr.as_ref(), "items.length");
+            assert_eq!(declarations[0].expr.raw.as_ref(), "items.length");
+            assert!(declarations[0].expr.parsed.is_some());
         }
         other => panic!("expected derived declaration, got {:?}", other),
     }
@@ -73,7 +77,7 @@ fn parses_on_event_modifier() {
 
     assert!(modifiers.contains(&Modifier::Event {
         event: "click".into(),
-        handler: "count++".into(),
+        handler: BlockSnippet::parse("count++".into()),
     }));
 }
 
@@ -86,7 +90,7 @@ fn parses_bind_modifier() {
 
     assert!(modifiers.contains(&Modifier::Atcode {
         name: "bind".into(),
-        body: "username".into(),
+        body: AtcodeBody::Text("username".into()),
     }));
 }
 
@@ -104,7 +108,7 @@ fn parses_interpolated_string() {
                 value: "Hello, ".into()
             },
             InterpolatedTextPart::Expr {
-                value: "name".into()
+                value: ExprSnippet::parse("name".into())
             },
             InterpolatedTextPart::Text { value: "!".into() },
         ])
@@ -121,16 +125,20 @@ fn parses_mixed_text_and_interpolation() {
     assert_eq!(
         value,
         &interpolated(vec![
-            InterpolatedTextPart::Expr { value: "a".into() },
+            InterpolatedTextPart::Expr {
+                value: ExprSnippet::parse("a".into())
+            },
             InterpolatedTextPart::Text {
                 value: " + ".into()
             },
-            InterpolatedTextPart::Expr { value: "b".into() },
+            InterpolatedTextPart::Expr {
+                value: ExprSnippet::parse("b".into())
+            },
             InterpolatedTextPart::Text {
                 value: " = ".into()
             },
             InterpolatedTextPart::Expr {
-                value: "a + b".into()
+                value: ExprSnippet::parse("a + b".into())
             },
         ])
     );
@@ -184,8 +192,8 @@ fn parses_effect_with_backtick_template_literal() {
         .find(|d| matches!(d, AtcodeDeclaration::Effect { .. }))
         .expect("effect declaration expected");
     if let AtcodeDeclaration::Effect { body, .. } = effect {
-        assert!(body.contains("`Count:"), "{}", body);
-        assert!(body.contains("${count}"), "{}", body);
+        assert!(body.raw.contains("`Count:"), "{}", body.raw);
+        assert!(body.raw.contains("${count}"), "{}", body.raw);
     }
 }
 
@@ -196,7 +204,7 @@ fn parses_style_modifier_as_atcode() {
     let (_, modifiers, _) = expect_inline(&ast.children[0]);
     assert!(modifiers.contains(&Modifier::Atcode {
         name: "style".into(),
-        body: "color: red".into(),
+        body: AtcodeBody::Text("color: red".into()),
     }));
 }
 
@@ -205,10 +213,14 @@ fn parses_if_modifier_as_atcode() {
     let input = "<page { button(@if=\"isVisible\"): \"Click\" }>";
     let ast = parse_sakko(input).unwrap();
     let (_, modifiers, _) = expect_inline(&ast.children[0]);
-    assert!(modifiers.contains(&Modifier::Atcode {
-        name: "if".into(),
-        body: "isVisible".into(),
-    }));
+    assert_eq!(modifiers.len(), 1);
+    assert!(matches!(
+        &modifiers[0],
+        Modifier::Atcode {
+            name,
+            body: AtcodeBody::Expr(ExprSnippet { raw, .. }),
+        } if name == "if" && raw.as_ref() == "isVisible"
+    ));
 }
 
 #[test]
@@ -216,8 +228,12 @@ fn parses_if_with_identifier_no_quotes() {
     let input = "<page { button(@if=isVisible): \"Click\" }>";
     let ast = parse_sakko(input).unwrap();
     let (_, modifiers, _) = expect_inline(&ast.children[0]);
-    assert!(modifiers.contains(&Modifier::Atcode {
-        name: "if".into(),
-        body: "isVisible".into(),
-    }));
+    assert_eq!(modifiers.len(), 1);
+    assert!(matches!(
+        &modifiers[0],
+        Modifier::Atcode {
+            name,
+            body: AtcodeBody::Expr(ExprSnippet { raw, .. }),
+        } if name == "if" && raw.as_ref() == "isVisible"
+    ));
 }

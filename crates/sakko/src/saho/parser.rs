@@ -10,8 +10,8 @@ use chumsky::{
 };
 
 use super::ast::{
-    ASSIGN_OPS, Arg, AssignOp, BinOp, Body, EKind, Key, Node, ObjPatProp, ObjProp, Pat, Stmt,
-    TplPart as TplPartAst, TypeAst, UnaryOp, UpdateOp, VarKw,
+    ASSIGN_OPS, Arg, AssignOp, BinOp, Body, EKind, Key, Node, ObjPatProp, ObjProp, ObjTyProp, Pat,
+    Stmt, TplPart as TplPartAst, TypeAst, UnaryOp, UpdateOp, VarKw,
 };
 use super::lexer::{ETok, Subst, TplPart};
 
@@ -206,23 +206,34 @@ fn arg_map(arg: Arg, delta: u32) -> Arg {
 fn body_map(body: Body, delta: u32) -> Body {
     match body {
         Body::Expr(n) => Body::Expr(Box::new(remap(*n, delta))),
-        Body::Block(stmts) => Body::Block(
-            stmts
-                .into_iter()
-                .map(|stmt| match stmt {
-                    Stmt::Expr(n) => Stmt::Expr(remap(n, delta)),
-                    Stmt::VarDecl { kw, decls } => Stmt::VarDecl {
-                        kw,
-                        decls: decls
-                            .into_iter()
-                            .map(|(p, init)| (p, init.map(|n| remap(n, delta))))
-                            .collect::<Vec<_>>(),
-                    },
-                    Stmt::Return(opt) => Stmt::Return(opt.map(|n| remap(n, delta))),
-                })
-                .collect::<Vec<_>>(),
-        ),
+        Body::Block(stmts) => Body::Block(stmts_map(stmts, delta)),
     }
+}
+
+fn stmts_map(stmts: Vec<Stmt>, delta: u32) -> Vec<Stmt> {
+    stmts
+        .into_iter()
+        .map(|stmt| match stmt {
+            Stmt::Expr(n) => Stmt::Expr(remap(n, delta)),
+            Stmt::VarDecl { kw, decls } => Stmt::VarDecl {
+                kw,
+                decls: decls
+                    .into_iter()
+                    .map(|(p, init)| (p, init.map(|n| remap(n, delta))))
+                    .collect::<Vec<_>>(),
+            },
+            Stmt::Return(opt) => Stmt::Return(opt.map(|n| remap(n, delta))),
+            Stmt::If {
+                test,
+                then_block,
+                else_block,
+            } => Stmt::If {
+                test: remap(test, delta),
+                then_block: stmts_map(then_block, delta),
+                else_block: else_block.map(|bs| stmts_map(bs, delta)),
+            },
+        })
+        .collect::<Vec<_>>()
 }
 
 /// Convert one paren-group element into an arrow parameter pattern.
@@ -380,10 +391,11 @@ where
     })
 }
 
-fn mk_stmt<'a, I, E>(expr: E) -> impl Parser<'a, I, Stmt, Ex<'a>> + Clone
+fn mk_stmt<'a, I, E, B>(expr: E, block_body: B) -> impl Parser<'a, I, Stmt, Ex<'a>> + Clone
 where
     I: BorrowInput<'a, Token = ETok, Span = SP>,
     E: Parser<'a, I, Node, Ex<'a>> + Clone + 'a,
+    B: Parser<'a, I, Vec<Stmt>, Ex<'a>> + Clone + 'a,
 {
     let semi = punct(";").or_not();
     let var_decl = choice((
@@ -404,8 +416,22 @@ where
         .ignore_then(expr.clone().or_not())
         .then_ignore(semi)
         .map(Stmt::Return);
+    let if_stmt = recursive(|ifp| {
+        let else_clause = just(kw("else"))
+            .ignore_then(choice((block_body.clone(), ifp.clone().map(|s| vec![s]))))
+            .or_not();
+        just(kw("if"))
+            .ignore_then(expr.clone())
+            .then(block_body.clone())
+            .then(else_clause)
+            .map(|((test, then_block), else_block)| Stmt::If {
+                test,
+                then_block,
+                else_block,
+            })
+    });
     let expr_stmt = expr
-        .then_ignore(punct(";").or(end()))
+        .then_ignore(punct(";").or_not())
         .try_map(|n: Node, span| match &n.kind {
             // A bare declaration keyword is always a typo'd declaration,
             // never a legitimate expression statement.
@@ -416,7 +442,22 @@ where
             _ => Ok(Stmt::Expr(n)),
         });
 
-    choice((ret, var_decl, expr_stmt))
+    choice((if_stmt, ret, var_decl, expr_stmt))
+}
+
+/// A self-recursive sequence of statements (top-level `@effect`/function
+/// bodies). `if` bodies recurse through this same fixpoint.
+fn stmt_list<'a, I, E>(expr: E) -> impl Parser<'a, I, Vec<Stmt>, Ex<'a>> + Clone
+where
+    I: BorrowInput<'a, Token = ETok, Span = SP>,
+    E: Parser<'a, I, Node, Ex<'a>> + Clone + 'a,
+{
+    recursive(move |list| {
+        let block_body = punct("{").ignore_then(list.clone()).then_ignore(punct("}"));
+        mk_stmt(expr.clone(), block_body)
+            .repeated()
+            .collect::<Vec<_>>()
+    })
 }
 
 // Grammar
@@ -447,10 +488,10 @@ where
 {
     let expr_full = recursive(|expr| {
         let pat = mk_pat(expr.clone());
-        let block_body = mk_stmt(expr.clone())
-            .repeated()
-            .collect::<Vec<_>>()
-            .delimited_by(punct("{"), punct("}"));
+        let stmts = stmt_list(expr.clone());
+        let block_body = punct("{")
+            .ignore_then(stmts.clone())
+            .then_ignore(punct("}"));
 
         // shared pieces
         let call_args = choice((
@@ -603,7 +644,8 @@ where
                     )
                 });
 
-                // `as` type annotations: primitives, `T[]`, `T | null`.
+                // `as` type annotations: primitives, `{ ... }` object types,
+                // `T[]`, and `T | null | undefined`.
                 let prim_ty = choice((
                     just(kw("number")).to(TypeAst::Number),
                     just(kw("string")).to(TypeAst::Str),
@@ -612,7 +654,29 @@ where
                     just(kw("undefined")).to(TypeAst::Undefined),
                     just(kw("unknown")).to(TypeAst::Unknown),
                 ));
-                let as_type = prim_ty
+                let obj_ty = {
+                    let prop = choice((
+                        select_ref! { ETok::Ident(s) => Key::Ident(s.clone()) },
+                        select_ref! { ETok::Str(s) => Key::Lit(s.clone()) },
+                    ))
+                    .then_ignore(punct(":"))
+                    .then(prim_ty.clone())
+                    .map(|(key, ty)| ObjTyProp {
+                        name: match key {
+                            Key::Ident(s) => s,
+                            Key::Lit(s) => s,
+                            _ => String::default(),
+                        },
+                        ty,
+                    });
+                    prop.separated_by(punct(","))
+                        .allow_trailing()
+                        .collect::<Vec<_>>()
+                        .delimited_by(punct("{"), punct("}"))
+                        .map(TypeAst::Object)
+                };
+                let base_ty = choice((prim_ty, obj_ty));
+                let as_type = base_ty
                     .then(
                         punct("[")
                             .ignore_then(punct("]"))
@@ -906,10 +970,7 @@ where
         })
         .then_ignore(end());
 
-    let body_entry = mk_stmt(expr_full)
-        .repeated()
-        .collect::<Vec<_>>()
-        .then_ignore(end());
+    let body_entry = stmt_list(expr_full).then_ignore(end());
 
     (expr_entry, body_entry)
 }

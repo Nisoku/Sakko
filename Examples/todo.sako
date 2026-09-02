@@ -1,0 +1,42 @@
+<todo {
+  @state {
+    input = ""
+    items = []
+    filter = "all"
+  }
+
+  @derived {
+    remaining = items.filter(item => !item.done).length
+    visible = filter == "active"
+      ? items.filter(item => !item.done)
+      : filter == "done"
+        ? items.filter(item => item.done)
+        : items
+  }
+
+  heading(xlarge): "Todos"
+
+  column(gap small): [
+    row(gap small): [
+      input @bind="input" placeholder="What needs doing?": "",
+      button(accent) @on:click {
+        input = input.trim()
+        if input != "" {
+          items.push({ text: input, done: false })
+          input = ""
+        }
+      }: "Add"
+    ],
+    row: [
+      button(filter == "all" ? accent : none) @on:click { filter = "all" }: "All",
+      button(filter == "active" ? accent : none) @on:click { filter = "active" }: "Active",
+      button(filter == "done" ? accent : none) @on:click { filter = "done" }: "Done"
+    ],
+    text(dim small): "{remaining} remaining",
+    column(gap small) @each="item in visible": [
+      row @on:click {
+        item.done = !item.done
+      }: [checkbox checked="item.done", text(item.done ? "strikethrough" : ""): item.text]
+    ]
+  ]
+}>

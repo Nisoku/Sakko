@@ -19,8 +19,9 @@ pub mod typecheck;
 pub use error::{Result, SakkoError};
 pub use span::{LineIndex, Span};
 pub use syntax::ast::{
-    AstNode, AtcodeDeclaration, DerivedVar, ElementNode, InlineNode, InlineValue, InterpolatedText,
-    InterpolatedTextPart, ListNode, Modifier, RootNode, StateVar,
+    AstNode, AtcodeBody, AtcodeDeclaration, BlockSnippet, DerivedVar, EachSpec, ElementNode,
+    ExprSnippet, InlineNode, InlineValue, InterpolatedText, InterpolatedTextPart, ListNode,
+    Modifier, RootNode, SnippetDiag, StateVar,
 };
 pub use syntax::lexer::tokenize;
 pub use syntax::parser::{Parser, parse_sakko};

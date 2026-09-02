@@ -1,15 +1,16 @@
-//! Expression and statement AST for the Saho sub-language
+//! Expression and statement AST for the Saho sub-language.
 
 use crate::span::Span;
+use serde::{Deserialize, Serialize};
 
 /// A spanned expression node.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Node {
     pub kind: EKind,
     pub span: Span,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum EKind {
     /// Identifier or contextual keyword used as a value.
     Ident(String),
@@ -97,7 +98,7 @@ pub enum EKind {
 }
 
 /// A user-written type annotation (the right side of `as`).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TypeAst {
     Number,
     Str,
@@ -108,6 +109,15 @@ pub enum TypeAst {
     Array(Box<TypeAst>),
     /// `T | null | undefined`
     Nullable(Box<TypeAst>),
+    /// `{ name: T, ... }`: a structural object type.
+    Object(Vec<ObjTyProp>),
+}
+
+/// One member of a structural object type annotation (`{ width: number }`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ObjTyProp {
+    pub name: String,
+    pub ty: TypeAst,
 }
 
 impl TypeAst {
@@ -127,18 +137,19 @@ impl TypeAst {
                     crate::typecheck::Ty::Undefined,
                 )
             }
+            Self::Object(_) => crate::typecheck::Ty::Object,
         }
     }
 }
 
 /// One part of a template literal in the AST.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TplPart {
     Quasi(String),
     Expr(Node),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ObjProp {
     /// `{ key: value }`: key is the raw source of ident/number/string.
     Kv {
@@ -150,20 +161,20 @@ pub enum ObjProp {
     Spread(Node),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Key {
     Ident(String),
     Lit(String),
     Computed(Node),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Arg {
     Plain(Node),
     Spread(Node),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Pat {
     Ident(String),
     Default { pat: Box<Pat>, init: Node },
@@ -172,7 +183,7 @@ pub enum Pat {
     Object(Vec<ObjPatProp>),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ObjPatProp {
     Kv { key: Key, pat: Pat },
     Shorthand(Pat),
@@ -180,7 +191,7 @@ pub enum ObjPatProp {
 }
 
 /// Function/arrow body: either an expression or a statement block.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Body {
     Expr(Box<Node>),
     Block(Vec<Stmt>),
@@ -188,7 +199,7 @@ pub enum Body {
 
 /// Minimal statement set for block bodies (`@effect` bodies, function
 /// bodies). Extended as corpus demands.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Stmt {
     Expr(Node),
     VarDecl {
@@ -196,16 +207,21 @@ pub enum Stmt {
         decls: Vec<(Pat, Option<Node>)>,
     },
     Return(Option<Node>),
+    If {
+        test: Node,
+        then_block: Vec<Stmt>,
+        else_block: Option<Vec<Stmt>>,
+    },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VarKw {
     Const,
     Let,
     Var,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum UnaryOp {
     Neg,
     Pos,
@@ -232,7 +248,7 @@ impl UnaryOp {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum UpdateOp {
     Inc,
     Dec,
@@ -247,7 +263,7 @@ impl UpdateOp {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BinOp {
     Nullish,
     Or,
@@ -325,7 +341,7 @@ impl BinOp {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AssignOp {
     Assign,
     Add,

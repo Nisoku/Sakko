@@ -109,24 +109,35 @@ pub fn lex(src: &str) -> Result<Vec<(ETok, Span)>, ExprDiag> {
             b'"' | b'\'' => {
                 let start = i;
                 let quote = b;
-                i += 1;
-                loop {
-                    if i >= len {
-                        return Err(ExprDiag::new(
-                            Span::new(start, len),
-                            "unterminated string literal",
-                        ));
+                // Double-quoted strings support `{expr}` interpolation; single
+                // quotes are plain strings, matching Saho/Sakko text nodes.
+                if quote == b'"' {
+                    let parts = lex_interp_string(src, &mut i)?;
+                    if let Some(parts) = parts {
+                        toks.push((ETok::Template(parts), Span::new(start, i)));
+                    } else {
+                        toks.push((ETok::Str(src[start..i].to_owned()), Span::new(start, i)));
                     }
-                    match bytes[i] {
-                        b'\\' => i += 2,
-                        b if b == quote => {
-                            i += 1;
-                            break;
+                } else {
+                    i += 1;
+                    loop {
+                        if i >= len {
+                            return Err(ExprDiag::new(
+                                Span::new(start, len),
+                                "unterminated string literal",
+                            ));
                         }
-                        _ => i += 1,
+                        match bytes[i] {
+                            b'\\' => i += 2,
+                            b if b == quote => {
+                                i += 1;
+                                break;
+                            }
+                            _ => i += 1,
+                        }
                     }
+                    toks.push((ETok::Str(src[start..i].to_owned()), Span::new(start, i)));
                 }
-                toks.push((ETok::Str(src[start..i].to_owned()), Span::new(start, i)));
             }
             b'`' => {
                 let start = i;
@@ -283,6 +294,54 @@ fn scan_number(bytes: &[u8], mut i: usize) -> usize {
         i += 1;
     }
     i
+}
+
+/// Scan a double-quoted string starting at `"`. If it contains an
+/// unescaped `{expr}` interpolation, return that interpolation as template
+/// parts; otherwise return `None` (a plain string literal). Advances `i` past
+/// the closing quote either way.
+fn lex_interp_string(src: &str, i: &mut usize) -> Result<Option<Vec<TplPart>>, ExprDiag> {
+    let bytes = src.as_bytes();
+    let len = bytes.len();
+    let open = *i;
+    *i += 1;
+
+    let mut parts = Vec::new();
+    let mut quasi_start = *i;
+    let mut has_interp = false;
+
+    loop {
+        if *i >= len {
+            return Err(ExprDiag::new(
+                Span::new(open, len),
+                "unterminated string literal",
+            ));
+        }
+        match bytes[*i] {
+            b'\\' => *i += 2,
+            b'"' => {
+                if has_interp {
+                    parts.push(TplPart::Quasi(src[quasi_start..*i].to_owned()));
+                }
+                *i += 1;
+                return Ok(if has_interp { Some(parts) } else { None });
+            }
+            b'{' => {
+                has_interp = true;
+                parts.push(TplPart::Quasi(src[quasi_start..*i].to_owned()));
+                *i += 1;
+                let subst_start = *i;
+                let subst_src = scan_substitution(src, i)?;
+                let abs = Span::new(subst_start, subst_start + subst_src.len());
+                parts.push(TplPart::Subst(Subst {
+                    text: subst_src.to_owned(),
+                    abs,
+                }));
+                quasi_start = *i;
+            }
+            _ => *i += 1,
+        }
+    }
 }
 
 /// Scan a template literal starting at `` ` `` and advance `i` past the

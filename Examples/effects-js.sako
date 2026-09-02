@@ -1,0 +1,32 @@
+<effects-js {
+  @state {
+    count = 0
+  }
+
+  @effect {
+    console.log("Count changed:", count)
+    document.title = `Count: ${count}`
+  }
+
+  @derived {
+    label = count == 0 ? "zero" : count == 1 ? "one" : "many"
+  }
+
+  // js { ... } is an escape hatch: the body is emitted verbatim and never
+  // typechecked, for code the Saho language cannot express.
+  @state {
+    screen = js {
+      if (typeof window !== "undefined") {
+        return { width: window.innerWidth, height: window.innerHeight }
+      }
+      return { width: 0, height: 0 }
+    } as { width: number, height: number }
+  }
+
+  column(gap small): [
+    text(bold xlarge): "Count: {count}",
+    text(dim): "That's {label} clicks",
+    text(small): "Screen: {screen.width} x {screen.height}",
+    button(accent) @on:click { count++ }: "Increment"
+  ]
+}>

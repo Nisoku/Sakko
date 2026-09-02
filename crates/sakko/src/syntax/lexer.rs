@@ -112,12 +112,21 @@ pub fn tokenize(input: &str) -> Result<Vec<Token<'_>>> {
 
             // Scan up to the next unescaped closing quote so we don't
             // mistake braces outside this literal for interpolation ends.
+            // Advance a full character each step so `scan_end` always lands
+            // on a UTF-8 char boundary (the slice below requires it).
             let mut scan_end = i;
             while scan_end < len && !input[scan_end..].starts_with(quote) {
-                if input[scan_end..].starts_with('\\') && scan_end + 1 < len {
-                    scan_end += 2;
+                if input[scan_end..].starts_with('\\') {
+                    let Some(esc) = char_at(input, scan_end + 1) else {
+                        scan_end += 2;
+                        continue;
+                    };
+                    scan_end += 1 + esc.len_utf8();
                 } else {
-                    scan_end += 1;
+                    let Some(c) = char_at(input, scan_end) else {
+                        break;
+                    };
+                    scan_end += c.len_utf8();
                 }
             }
             let literal_content = &input[i..scan_end];

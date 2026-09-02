@@ -70,10 +70,10 @@ impl<'a> Parser<'a> {
             let var_name = self.consume()?.value; // Consume IDENT
 
             self.expect(TokenKind::Equals, None)?;
-            let value_expr = self.parse_expression()?;
+            let value = self.parse_expr_snippet()?;
             declarations.push(StateVar {
                 name: var_name,
-                value: value_expr,
+                value,
             });
 
             if self.check(TokenKind::Semi) || self.check(TokenKind::Comma) {
@@ -95,7 +95,7 @@ impl<'a> Parser<'a> {
         }
         self.consume()?;
 
-        let body = self.parse_block_body()?;
+        let body = self.parse_block_snippet()?;
         self.expect(TokenKind::Rbrace, None)?;
 
         Ok(AtcodeDeclaration::Effect {
@@ -136,7 +136,7 @@ impl<'a> Parser<'a> {
 
             if self.check(TokenKind::Equals) {
                 self.consume()?;
-                let expr = self.parse_expression()?;
+                let expr = self.parse_expr_snippet()?;
                 declarations.push(DerivedVar {
                     name: var_name,
                     expr,

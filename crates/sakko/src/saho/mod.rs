@@ -102,9 +102,12 @@ pub fn parse_body(src: &str) -> Result<Vec<Stmt>, Vec<ExprDiag>> {
         let start = s.start;
         let end = s.end;
         if depth == 0 {
+            let is_closer = matches!(t, ETok::Punct("}") | ETok::Punct(")") | ETok::Punct("]"));
             if matches!(t, ETok::Punct(";")) {
                 bounds.push((i, true));
-            } else if start > prev_end && src[prev_end..start].contains('\n') {
+            } else if !is_closer && start > prev_end && src[prev_end..start].contains('\n') {
+                // A depth-0 line break separates statements, but a closing
+                // bracket can never *start* one
                 bounds.push((i, false));
             }
         }

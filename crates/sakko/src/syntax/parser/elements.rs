@@ -2,8 +2,8 @@
 
 use crate::error::Result;
 use crate::syntax::ast::{
-    AstNode, ElementNode, InlineNode, InlineValue, InterpolatedText, InterpolatedTextPart,
-    ListNode, Modifier,
+    AstNode, ElementNode, ExprSnippet, InlineNode, InlineValue, InterpolatedText,
+    InterpolatedTextPart, ListNode, Modifier,
 };
 use crate::syntax::token::TokenKind;
 use std::borrow::Cow;
@@ -25,15 +25,36 @@ impl<'a> Parser<'a> {
 
         let mut modifiers: Vec<Modifier> = Vec::new();
 
-        while self.check(TokenKind::Lparen) || self.check(TokenKind::At) {
+        loop {
             if self.check(TokenKind::Lparen) {
                 modifiers.extend(self.parse_modifiers()?);
+                continue;
             }
 
             if self.check(TokenKind::At) {
                 self.consume()?; // consume @
                 modifiers.push(self.parse_inline_modifier()?);
+                continue;
             }
+
+            // Inline `key=value` pair after an inline atcode
+            // (`input @bind="email" placeholder="..."`).
+            if self.check(TokenKind::Ident)
+                && self.peek_ahead_is(TokenKind::Equals)
+                && self.peek_ahead(2).map(|t| t.kind) != Some(TokenKind::Equals)
+            {
+                let key = self.consume()?.value;
+                self.consume()?; // consume =
+                let mut value = self.consume()?.value;
+                while self.check(TokenKind::Dot) && self.peek_ahead_is(TokenKind::Ident) {
+                    self.consume()?;
+                    value = join_member(value, self.consume()?.value);
+                }
+                modifiers.push(Modifier::Pair { key, value });
+                continue;
+            }
+
+            break;
         }
 
         if self.check(TokenKind::Colon) {
@@ -70,7 +91,11 @@ impl<'a> Parser<'a> {
             }
 
             if val_kind == TokenKind::Ident {
-                let value = self.consume()?.value;
+                let mut value = self.consume()?.value;
+                while self.check(TokenKind::Dot) && self.peek_ahead_is(TokenKind::Ident) {
+                    self.consume()?;
+                    value = join_member(value, self.consume()?.value);
+                }
                 return Ok(AstNode::Inline(InlineNode {
                     name,
                     modifiers,
@@ -168,8 +193,8 @@ impl<'a> Parser<'a> {
 
             if self.check(TokenKind::InterpStart) {
                 self.consume()?;
-                let expr = self.expect(TokenKind::Expr, None)?.value;
-                parts.push(InterpolatedTextPart::Expr { value: expr });
+                let value = self.interp_expr()?;
+                parts.push(InterpolatedTextPart::Expr { value });
                 self.expect(TokenKind::InterpEnd, None)?;
             }
         }
@@ -186,4 +211,19 @@ impl<'a> Parser<'a> {
 
         Ok(InlineValue::Interpolated(InterpolatedText::new(parts)))
     }
+
+    /// Read and pre-parse a `{ expr }` interpolation body.
+    fn interp_expr(&mut self) -> Result<ExprSnippet<'a>> {
+        let expr = self.expect(TokenKind::Expr, None)?;
+        Ok(ExprSnippet::parse(expr.value))
+    }
+}
+
+/// Reconstruct `a.b` from two `Cow` strings.
+fn join_member<'a>(a: Cow<'a, str>, b: Cow<'a, str>) -> Cow<'a, str> {
+    let mut out = String::with_capacity(a.len() + b.len() + 1);
+    out.push_str(a.as_ref());
+    out.push('.');
+    out.push_str(b.as_ref());
+    Cow::Owned(out.to_string())
 }

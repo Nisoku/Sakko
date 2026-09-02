@@ -88,7 +88,7 @@ pub fn instance_member(recv: &Ty, name: &str) -> Option<Member> {
     match recv {
         Str => str_member(name),
         Number => match name {
-            "toFixed" | "toPrecision" | "toString" => method(Str),
+            "toFixed" | "toPrecision" | "toString" | "toLocaleString" => method(Str),
             "valueOf" => method(Number),
             _ => None,
         },

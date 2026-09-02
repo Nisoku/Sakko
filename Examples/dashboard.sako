@@ -1,26 +1,46 @@
 <dashboard {
+  @state {
+    users = 12483
+    sessions = 1024
+    revenue = 48290
+    refresh = 0
+  }
+
+  @derived {
+    userDelta = 4.2
+    revenueDelta = 12.7
+    sessionDelta = -2.1
+  }
+
   heading(xlarge): "Dashboard"
   text(dim): "Welcome back, here is your overview."
 
   grid(cols 3 gap large) {
     card(curved) {
       text(dim small): "Total Users"
-      text(bold large): "12,483"
-      badge(success large): "+4.2%"
+      text(bold large): "{users.toLocaleString()}"
+      badge(success large): "+{userDelta}%"
     }
 
     card(curved) {
       text(dim small): "Revenue"
-      text(bold large): "$48,290"
-      badge(accent large): "+12.7%"
+      text(bold large): "${revenue.toLocaleString()}"
+      badge(accent large): "+{revenueDelta}%"
     }
 
     card(curved) {
       text(dim small): "Active Sessions"
-      text(bold large): "1,024"
-      badge(danger large): "-2.1%"
+      text(bold large): "{sessions.toLocaleString()}"
+      badge(sessionDelta >= 0 ? success : danger large): "{sessionDelta}%"
     }
   }
+
+  spacer(large)
+
+  row: [
+    text(dim small): "Last refresh: {refresh}",
+    button(small) @on:click { refresh = refresh + 1 }: "Refresh"
+  ]
 
   spacer(large)
 

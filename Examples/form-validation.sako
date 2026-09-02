@@ -1,0 +1,37 @@
+<form-validation {
+  @state {
+    email = ""
+    password = ""
+    submitted = false
+  }
+
+  @derived {
+    emailValid = email.includes("@") && email.includes(".")
+    passwordValid = password.length >= 8
+    canSubmit = emailValid && passwordValid
+  }
+
+  heading(xlarge): "Sign up"
+
+  column(gap medium): [
+    label: "Email",
+    input @bind="email" placeholder="you@example.com": "",
+    text(emailValid || !email ? " " : danger): "Please enter a valid email",
+
+    label: "Password",
+    input @bind="password" type="password": "",
+    text(passwordValid || !password ? " " : danger): "At least 8 characters",
+
+    text(email == "admin@example.com" ? accent : dim): "Tip: the admin account has special powers",
+
+    button(primary) @on:click {
+      email = email.trim()
+      password = password.trim()
+      if canSubmit {
+        submitted = true
+      }
+    }: "Create account",
+
+    text(submitted ? success : " "): "Welcome to Sakko!"
+  ]
+}>
