@@ -1,0 +1,5 @@
+error[SKT007]: duplicate declaration of 'count'
+  --> @state 'count' at line 3, col 3
+   |
+ 1 | 1
+   | ^

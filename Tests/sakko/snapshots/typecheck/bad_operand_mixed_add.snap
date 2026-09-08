@@ -1,0 +1,5 @@
+error[SKT005]: operator '+' cannot be applied to 'number' and 'string'; use a template literal instead
+  --> text interpolation
+   |
+ 1 | count + 'x'
+   | ^^^^^^^^^^^

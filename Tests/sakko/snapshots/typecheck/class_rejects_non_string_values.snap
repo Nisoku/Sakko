@@ -1,0 +1,10 @@
+error[SKT015]: class expression must yield a string or an array of strings, got 'number'
+  --> @class
+   |
+ 1 | n
+   | ^
+error[SKT015]: class expression must yield a string or an array of strings, got 'object'
+  --> @class
+   |
+ 1 | {active:on}
+   | ^^^^^^^^^^^

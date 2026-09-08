@@ -1,0 +1,5 @@
+error[SKT011]: found '`)`' expected '`!`', '`~`', '`-`', '`+`', 'typeof', 'void', 'delete', 'await', '`++`', '`--`', 'function', 'async', 'new', something else, 'true', 'false', 'null', 'undefined', 'this', 'super', '`(`', '`{`', or '`[`'
+  --> @effect at line 2, col 3
+   |
+ 1 | console.log(1+)
+   |               ^

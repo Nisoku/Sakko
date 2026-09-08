@@ -1,236 +1,248 @@
 ---
 title: "API Reference"
-description: "Public API for the Sakko parser and tokenizer"
+description: "Public Rust API for the sakko crate"
 order: 2
 ---
 
 # Sakko API Reference
 
----
-
-## Parser
-
-### `parseSakko(input: string): RootNode`
-
-Parse a Sakko source string into an AST.
-
-```typescript
-import { parseSakko } from '@nisoku/sakko';
-
-const ast = parseSakko('<page { text: Hello }>');
-// Returns: { type: "root", name: "page", children: [...] }
-```
-
-**Parameters:**
-- `input: string` - Sakko source code
-
-**Returns:** `RootNode`
-
-**Throws:** `Error` with descriptive message on parse failure.
+All types below are re-exported from the `sakko` crate root.
 
 ---
 
-### `tokenize(input: string): Token[]`
+## Parsing
 
-Tokenize a Sakko source string into a token array.
+### `parse_sakko(input: &str) -> Result<RootNode>`
 
-```typescript
-import { tokenize } from '@nisoku/sakko';
+Parse a `.sako` source string into a document AST.
 
-const tokens = tokenize('button(accent): Save');
-// Returns: [
-//   { type: "IDENT", value: "button" },
-//   { type: "LPAREN", value: "(" },
-//   { type: "IDENT", value: "accent" },
-//   { type: "RPAREN", value: ")" },
-//   { type: "COLON", value: ":" },
-//   { type: "IDENT", value: "Save" }
-// ]
+```rust
+use sakko::parse_sakko;
+
+let ast = parse_sakko(r#"<counter { text: "Hello" }>"#)?;
+// ast: RootNode { name: "counter", children: [...], ... }
 ```
 
-**Token Types:**
-- Identifiers and symbols: `IDENT`, `LT`, `GT`, `LBRACE`, `RBRACE`, `LPAREN`, `RPAREN`, `LBRACKET`, `RBRACKET`, `COLON`, `SEMI`, `COMMA`, `DOT`, `PLUS`, `MINUS`, `STAR`, `AT`, `EQUALS`
-- String literals: `STRING`
-- Interpolation tokens: `INTERP_START`, `INTERP_END`, `EXPR`
-
-**Throws:** `Error` for unterminated strings or invalid syntax.
+The returned `RootNode` contains:
+- `name: Cow<str>` - component tag name
+- `modifiers: Vec<Modifier>` - flag/pair modifiers on the root
+- `declarations: Vec<AtcodeDeclaration>` - reactive block declarations (`@state`, `@derived`, `@effect`, `@if`, `@each`, `@class`, `@on`, `@bind`)
+- `children: Vec<AstNode>` - child elements, inlines, and lists
 
 ---
 
-## Types
+### `tokenize(input: &str) -> Result<Vec<Token>>`
 
-### AST Node Types
+Tokenize a source string. Useful for lexing-level tooling; the parser uses
+this internally.
 
-```typescript
-type RootNode = {
-  type: 'root';
-  name: string;
-  modifiers?: Modifier[];
-  declarations?: AtcodeDeclaration[];
-  children: ASTNode[];
-};
+```rust
+use sakko::tokenize;
 
-type ElementNode = {
-  type: 'element';
-  name: string;
-  modifiers?: Modifier[];
-  children: ASTNode[];
-};
-
-type InlineNode = {
-  type: 'inline';
-  name: string;
-  modifiers?: Modifier[];
-  value: string | InterpolatedText;
-};
-
-type ListNode = {
-  type: 'list';
-  items: ASTNode[];
-};
-
-type ASTNode = RootNode | ElementNode | InlineNode | ListNode;
+let tokens = tokenize("button(accent): Save")?;
+// Token { kind: TokenKind::Ident, value: "button", ... }
 ```
 
-### Modifier Types
-
-```typescript
-type Modifier =
-  | { type: 'flag'; value: string }
-  | { type: 'pair'; key: string; value: string }
-  | { type: 'event'; event: string; handler: string }
-  | { type: 'atcode'; name: string; body: string };
-```
-
-### Atcode Declaration Types
-
-```typescript
-type AtcodeDeclaration =
-  | {
-      type: 'state';
-      declarations: Array<{ name: string; value: string }>;
-      line: number;
-      col: number;
-    }
-  | {
-      type: 'effect';
-      body: string;
-      line: number;
-      col: number;
-    }
-  | {
-      type: 'derived';
-      declarations: Array<{ name: string; expr: string }>;
-      line: number;
-      col: number;
-    };
-```
-
-### Interpolated Text
-
-```typescript
-type InterpolatedText = {
-  type: 'interpolated';
-  parts: Array<
-    | { type: 'text'; value: string }
-    | { type: 'expr'; value: string }
-  >;
-};
-```
-
-### Token Type
-
-```typescript
-type Token = {
-  type: string;
-  value: string;
-  line: number;
-  col: number;
-};
-```
+**Token kinds:** `Lt`, `Gt`, `Lbrace`, `Rbrace`, `Lparen`, `Rparen`,
+`Lbracket`, `Rbracket`, `Colon`, `Semi`, `Comma`, `Ident`, `String`,
+`BacktickString`, `At`, `Equals`, `InterpStart`, `InterpEnd`, `Expr`,
+`Dot`, `Plus`, `Minus`, `Star`, `Pipe`, `Ampersand`, `Bang`, `Question`,
+`Percent`.
 
 ---
 
-## Compiler
+## Typechecking
 
-### `compileComponent(root: RootNode, options?: CompileOptions): string`
+### `check_source(src: &str) -> Result<Report>`
 
-Compile a Sakko AST to JavaScript with Sairin signals.
+Parse and typecheck a `.sako` source string in one call. Returns a `Report`
+containing diagnostics and raw-JS escape records.
 
-```typescript
-import { parseSakko, compileComponent } from '@nisoku/sakko';
+```rust
+use sakko::check_source;
 
-const ast = parseSakko('<counter { @state { count = 0 } }>');
-const js = compileComponent(ast);
-// Returns: const { signal } = sairin; ... (global mode by default)
+let report = check_source(r#"<counter { @state { count = 0 } }>"#)?;
+assert!(report.diagnostics.is_empty());
 ```
 
-#### CompileOptions
+### `check_ast(ast: &AstNode) -> Report`
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `id` | `string` | auto-generated | Custom component ID |
-| `sairinImport` | `'global' \| 'esm' \| 'cjs'` | `'global'` | How to import Sairin |
-| `sairinGlobal` | `string` | `'sairin'` | Global name for `global` mode |
-| `sairinModule` | `string` | `'sairin'` | Module path for `esm`/`cjs` modes |
-
-**Sairin Import Modes:**
-- `'global'`: References `window.sairin` (requires `<script src="sairin.js">`)
-- `'esm'`: Generates `import { signal } from 'sairin'` (use with bundler)
-- `'cjs'`: Generates `const { signal } = require('sairin')` (Node.js only)
+Typecheck an already-parsed AST node. The parser (`parse_sakko`) returns
+the AST; pass it here for the inference pass.
 
 ---
 
-## Runtime
+## Report types
 
-### `registerSakkoComponent(ast: RootNode, options?: RegisterOptions): Promise<void>`
+### `Report`
 
-Register a component as a custom element. **Async** in browser environments.
-
-```typescript
-import { parseSakko, registerSakkoComponent } from '@nisoku/sakko';
-
-const ast = parseSakko('<my-counter { @state { count = 0 } }>');
-await registerSakkoComponent(ast);
-// Now <sakko-my-counter> is available as a web component
-```
-
-#### RegisterOptions
-
-Same as `CompileOptions`: `sairinImport`, `sairinGlobal`, `sairinModule`.
-
-**Note:** In browsers, only `'global'` mode is supported. For `'esm'` or `'cjs'`, call `compileComponent` separately and use a bundler.
-
-### `getComponent(name: string): Readonly<RegisteredComponent> | undefined`
-
-Get a registered component by name (case-insensitive).
-
-```typescript
-import { getComponent } from '@nisoku/sakko';
-
-const comp = getComponent('my-counter');
-if (comp) {
-  console.log(comp.source); // The compiled JS source
-  console.log(comp.factory); // The factory function
-  console.log(comp.dispose); // Cleanup function for instances
+```rust
+pub struct Report {
+    pub diagnostics: Vec<Diagnostic>,
+    pub js_escapes: Vec<JsEscape>,
 }
 ```
 
-### `getAllComponents(): ReadonlyMap<string, Readonly<RegisteredComponent>>`
+### `Diagnostic`
 
-Get all registered components.
-
-### `getComponentSource(name: string): string | undefined`
-
-Get the compiled source for a component by name.
-
-### RegisteredComponent
-
-```typescript
-interface RegisteredComponent {
-  readonly name: string;              // Component name (lowercase)
-  readonly factory: (id?: string) => HTMLElement;  // Instance factory
-  readonly dispose: (id: string) => void;  // Cleanup function
-  readonly source: string;            // Compiled JS source
+```rust
+pub struct Diagnostic {
+    pub severity: Severity,   // currently always Error
+    pub code: Code,           // stable code: SKT001..SKT015
+    pub span: Span,
+    pub snippet: String,
+    pub caret: String,
+    pub message: String,
+    pub suggestion: Option<String>,
 }
+
+impl Diagnostic {
+    pub fn render(&self) -> String { /* formatted with source + caret */ }
+}
+```
+
+**Diagnostic codes:**
+
+| Code | Name | Description |
+|------|------|-------------|
+| SKT001 | `UnknownIdent` | Unknown identifier |
+| SKT002 | `UnknownProp` | Unknown property |
+| SKT003 | `NotCallable` | Value is not callable |
+| SKT004 | `AssignMismatch` | Type mismatch in assignment |
+| SKT005 | `BadOperand` | Invalid operand for operator |
+| SKT006 | `BadUnaryOperand` | Invalid operand for unary operator |
+| SKT007 | `DuplicateDecl` | Duplicate state declaration |
+| SKT008 | `BadBindTarget` | `@bind` must target a state variable |
+| SKT009 | `BadEachSource` | Malformed `@each` source |
+| SKT010 | `RenderedFunction` | Function used where a value is rendered |
+| SKT011 | `SnippetParse` | Saho parse error inside a snippet |
+| SKT012 | `ConstReassign` | Cannot reassign `@derived` or constant |
+| SKT013 | `UnknownUse` | Use of a value the checker cannot resolve |
+| SKT014 | `ImpossibleCast` | `as` cast between disjoint concrete types |
+| SKT015 | `BadClassType` | `@class` expression must yield a string or array of strings |
+
+### `JsEscape`
+
+One recorded `js { ... }` occurrence. Bodies are never typechecked.
+
+```rust
+pub struct JsEscape {
+    pub kind_label: String,
+    pub location: Option<(u32, u32)>,
+    pub span: Span,
+    pub body: String,
+}
+```
+
+---
+
+## AST node types
+
+### `RootNode` / `ElementNode` / `InlineNode` / `ListNode`
+
+```rust
+pub struct RootNode<'a> {
+    pub name: Cow<'a, str>,
+    pub modifiers: Vec<Modifier<'a>>,
+    pub declarations: Vec<AtcodeDeclaration<'a>>,
+    pub children: Vec<AstNode<'a>>,
+}
+
+pub struct ElementNode<'a> {
+    pub name: Cow<'a, str>,
+    pub modifiers: Vec<Modifier<'a>>,
+    pub children: Vec<AstNode<'a>>,
+}
+
+pub struct InlineNode<'a> {
+    pub name: Cow<'a, str>,
+    pub modifiers: Vec<Modifier<'a>>,
+    pub value: InlineValue<'a>,
+}
+
+pub struct ListNode<'a> {
+    pub items: Vec<AstNode<'a>>,
+}
+
+pub enum AstNode<'a> {
+    Root(RootNode<'a>),
+    Element(ElementNode<'a>),
+    Inline(InlineNode<'a>),
+    List(ListNode<'a>),
+}
+```
+
+### Reactive snippets
+
+Every reactive payload is parsed once at document-parse time into a typed
+Saho node; the typechecker walks the pre-built tree (no re-parse).
+
+```rust
+pub struct ExprSnippet<'a> {
+    pub raw: Cow<'a, str>,
+    pub parsed: Option<Box<saho::Node>>,
+    pub errors: Vec<SnippetDiag>,
+}
+
+pub struct BlockSnippet<'a> {
+    pub raw: Cow<'a, str>,
+    pub parsed: Option<Vec<saho::Stmt>>,
+    pub errors: Vec<SnippetDiag>,
+}
+```
+
+### Declaration types
+
+```rust
+pub enum AtcodeDeclaration<'a> {
+    State(Vec<StateVar<'a>>),
+    Derived(Vec<DerivedVar<'a>>),
+    Effect(BlockSnippet<'a>),
+    If { test: ExprSnippet<'a>, then_block: BlockSnippet<'a>, else_block: Option<BlockSnippet<'a>> },
+    On { event: Cow<'a, str>, handler: BlockSnippet<'a> },
+    Bind(ExprSnippet<'a>),
+    Class(ExprSnippet<'a>),
+    Each(EachSpec<'a>),
+}
+
+pub struct StateVar<'a> {
+    pub name: Cow<'a, str>,
+    pub ty: Option<TypeAst<'a>>,
+    pub value: ExprSnippet<'a>,
+}
+
+pub struct DerivedVar<'a> {
+    pub name: Cow<'a, str>,
+    pub ty: Option<TypeAst<'a>>,
+    pub expr: ExprSnippet<'a>,
+}
+
+pub struct EachSpec<'a> {
+    pub item: Cow<'a, str>,
+    pub source: ExprSnippet<'a>,
+}
+```
+
+---
+
+## Re-exports
+
+From the crate root:
+
+```rust
+// Parsing
+pub use syntax::ast::{AstNode, RootNode, ElementNode, InlineNode, ListNode, Modifier, ...};
+pub use syntax::lexer::tokenize;
+pub use syntax::parser::parse_sakko;
+pub use syntax::token::{Token, TokenKind};
+
+// Typechecking
+pub use typecheck::{check_source, check_ast, Diagnostic, JsEscape, Report};
+
+// Sahō (expression language)
+pub mod saho;
+
+// Shared types
+pub use span::{Span, LineIndex};
+pub use error::{Result, SakkoError};
 ```

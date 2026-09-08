@@ -1,0 +1,5 @@
+error[SKT011]: '===' does not exist in Saho; '==' is already strict
+  --> @state 'isEmpty' at line 2, col 3
+   |
+ 1 | items.length===0
+   |             ^^^

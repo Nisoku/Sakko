@@ -1,0 +1,5 @@
+error[SKT010]: function values cannot be interpolated
+  --> text interpolation
+   |
+ 1 | items.map
+   | ^^^^^^^^^

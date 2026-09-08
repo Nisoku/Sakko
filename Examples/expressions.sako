@@ -1,0 +1,25 @@
+<expressions {
+  @state {
+    price = 19.99
+    qty = 3
+    upgrades = null
+  }
+
+  @derived {
+    subtotal = price * qty
+    total = subtotal + (upgrades ?? 0)
+    tier = total >= 100 ? "platinum" : total >= 50 ? "gold" : "silver"
+    label = "Order — {tier}"
+  }
+
+  heading(xlarge): "Order summary"
+
+  column(gap small): [
+    text: "Price × Qty = {price * qty}",
+    text: "Upgrades: {upgrades ?? 0}",
+    text(bold): "Total: ${total}",
+    text(badge): tier,
+    text(dim): label,
+    text(accent): "Tier check: {total >= 100 == true}"
+  ]
+}>

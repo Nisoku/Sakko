@@ -1,0 +1,5 @@
+error[SKT006]: operator '-' cannot be applied to type 'string'
+  --> text interpolation
+   |
+ 1 | -name
+   |  ^^^^

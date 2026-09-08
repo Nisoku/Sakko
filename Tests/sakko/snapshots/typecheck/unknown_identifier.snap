@@ -1,0 +1,5 @@
+error[SKT001]: unknown identifier 'cont'
+  --> text interpolation
+   |
+ 1 | cont
+   | ^^^^

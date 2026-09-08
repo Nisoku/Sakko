@@ -1,0 +1,5 @@
+error[SKT002]: type 'unknown[]' has no property or method 'lenght'
+  --> text interpolation
+   |
+ 1 | items.lenght
+   |       ^^^^^^
