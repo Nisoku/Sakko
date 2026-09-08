@@ -1,34 +1,56 @@
 ---
 title: "Sakko Documentation"
-description: "The modern DSL (Design Sub-Language) for describing UI trees"
+description: "The modern DSL for describing UI trees"
 toc: false
 ---
 
 # Sakko
 
-The modern DSL (Design Sub-Language) for describing UI trees. Sakko is a bracket-based markup language that compiles to component trees.
+Sakko is a bracket-based markup language that compiles to component trees for reactive UI. It is the front end of the S-eco stack: a typed document language, a strict expression sub-language (Sahō), and a compile-time typechecker, all Rust, all AOT.
 
 ## Quick start
 
-```typescript
-import { parseSakko, tokenize } from "@nisoku/sakko";
+```rust
+use sakko::{parse_sakko, check_source};
 
-// Tokenize Sakko source to tokens
-const tokens = tokenize('button(accent): Click me');
+fn main() {
+    // Parse a .sako source string into a typed AST
+    let ast = parse_sakko(r#"<counter { @state { count = 0 } }>"#)
+        .expect("parse failed");
 
-// Parse to AST
-const ast = parseSakko('<page { button(accent): Click me }>');
+    // Typecheck the AST, which returns diagnostics + raw-JS escape records
+    let report = check_source(r#"<counter { @state { count = 0 } }>"#)
+        .expect("parse failed");
+
+    if report.diagnostics.is_empty() {
+        println!("Clean.");
+    } else {
+        for d in &report.diagnostics {
+            eprintln!("{}", d.render());
+        }
+    }
+}
+```
+
+### Lexing only
+
+```rust
+use sakko::tokenize;
+
+let tokens = tokenize("button(accent): Save")?;
+// Vec<Token> with line/column tracking and interpolation splits
 ```
 
 ## What you get
 
 | Feature | Details |
-| --- | --- |
-| **Tokenizer** | Lexical analysis with line/column tracking |
-| **Parser** | Full AST generation with error messages |
-| **Types** | TypeScript definitions included |
-| **Zero deps** | Pure TypeScript, no external dependencies |
-| **Reactivity** | @state, @effect, @derived, @on:event, @bind, {interpolation} |
+|---------|---------|
+| **Lexer** | Tokenizer with line/column tracking and `{expr}` string-interpolation splits |
+| **Sahō parser** | Pratt expression parser (strict JS subset): types, arrows, `js{}`, `as` assertions |
+| **Structure parser** | Recursive-descent parser for `<name { ... }>` documents |
+| **AST** | Zero-copy via spans; serde on all token/AST types |
+| **Typechecker** | Inference pass with stable diagnostic codes SKT001-SKT015 |
+| **Reactive IR** | `@state`, `@derived`, `@effect`, `@on:event`, `@bind`, `@each`, `@if`, `@class` |
 
 ## Reactivity
 
@@ -43,17 +65,20 @@ Sakko compiles to Sairin signals for reactive UI:
 ```
 
 | Atcode | Description |
-| --- | --- |
+|--------|-------------|
 | `@state { }` | Declare reactive state |
 | `@effect { }` | Side effects that track dependencies |
 | `@derived { }` | Computed values |
 | `@on:event { }` | Event handlers |
 | `@bind="signal"` | Two-way input binding |
-| `{expr}` | Template interpolation |
+| `{expr}` | Template interpolation (backtick or double-quoted strings) |
+| `@if` | Conditional rendering inside handlers and effects |
+| `@each` | List iteration |
+| `@class="expr"` | Dynamic class string or array |
 
 ## Documentation
 
 | Page | Description |
-| --- | --- |
-| [**Language Reference**](/Sakko/language-reference/) | Full Sakko syntax: blocks, modifiers, lists, void elements |
-| [**API Reference**](/Sakko/api-reference/) | Complete public API: parseSakko, tokenize, types |
+|------|-------------|
+| [**Language Reference**](/Sakko/language-reference/) | Full Sakko syntax: blocks, modifiers, lists, reactivity |
+| [**API Reference**](/Sakko/api-reference/) | Public Rust API: parse_sakko, tokenize, check_source, types |

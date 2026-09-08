@@ -5,6 +5,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+autotests = false
 
 [dependencies]
 serde = { version = "1", default-features = false, features = ["alloc", "derive"] }
@@ -12,3 +13,39 @@ chumsky = { version = "1.0.0-alpha.8", features = ["pratt"] }
 
 [dev-dependencies]
 serde_json = "1"
+
+[[test]]
+name = "atcode_parser"
+path = "../../Tests/sakko/atcode_parser.rs"
+
+[[test]]
+name = "atcode_tokenizer"
+path = "../../Tests/sakko/atcode_tokenizer.rs"
+
+[[test]]
+name = "errors"
+path = "../../Tests/sakko/errors.rs"
+
+[[test]]
+name = "examples"
+path = "../../Tests/sakko/examples.rs"
+
+[[test]]
+name = "parser"
+path = "../../Tests/sakko/parser.rs"
+
+[[test]]
+name = "saho"
+path = "../../Tests/sakko/saho.rs"
+
+[[test]]
+name = "tokenizer"
+path = "../../Tests/sakko/tokenizer.rs"
+
+[[test]]
+name = "typecheck"
+path = "../../Tests/sakko/typecheck.rs"
+
+[[test]]
+name = "types"
+path = "../../Tests/sakko/types.rs"

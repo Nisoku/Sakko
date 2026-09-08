@@ -16,7 +16,7 @@ fn snap(name: &str, src: &str) {
     };
 
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/snapshots/typecheck")
+        .join("../../Tests/sakko/snapshots/typecheck")
         .join(format!("{name}.snap"));
 
     if std::env::var("BLESS").is_ok() {
@@ -314,4 +314,39 @@ fn js_escapes_are_recorded() {
     assert_eq!(report.js_escapes.len(), 2);
     assert_eq!(report.js_escapes[0].body, r#"return window.innerWidth"#);
     assert_eq!(report.js_escapes[1].kind_label, "@on:click");
+}
+
+#[test]
+fn happy_flexible_class_forms() {
+    // @class supports all spellings: static name, `=` string/array, braced.
+    snap(
+        "happy_flexible_class_forms",
+        r#"<app {
+  @state {
+    theme = "light"
+    on = true
+  }
+  div @class:name: "x"
+  div @class="theme dark": "x"
+  button @class={theme}: "y"
+  button @class=["a", "b"]: "y"
+  button @class={on ? "on" : "off"}: "y"
+  input @style="color: red": ""
+}>"#,
+    );
+}
+
+#[test]
+fn class_rejects_non_string_values() {
+    snap(
+        "class_rejects_non_string_values",
+        r#"<app {
+  @state {
+    n = 5
+    on = true
+  }
+  div @class={n}: "x"
+  div @class={ { active: on } }: "y"
+}>"#,
+    );
 }

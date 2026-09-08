@@ -55,6 +55,45 @@ snippets and carets.
 - New builtins: `fetch`, `setTimeout`, `clearTimeout`, `setInterval`,
   `clearInterval`. DOM objects remain reachable only through `js {}`.
 
+### Typed reactive AST + typed `@class`
+
+The reactive payloads are now built as pre-parsed, typechecked Saho nodes
+instead of raw strings:
+
+- `@state` / `@derived` run through the same typed pipeline as expressions,
+  producing structured `Node` trees that the typechecker walks directly (no
+  parse re-entry at check time).
+- New reactive typed `@class` (`@class="expr"`, `@class=["a","b"]`,
+  `@class={expr}`): the value is checked as a class-string (string /
+  array-of-string → `Ty::Str` / `Ty::Array(Str)`). Object-form `@class` is
+  intentionally not yet supported.
+  Diagnostic `SKT015` covers malformed class expressions.
+- `@if` statements: `if cond { ... } else { ... }` parses and typechecks in
+  handlers and `@effect` blocks.
+- `@each` item binding: `@each="item in source"` declares `item` with the
+  element type of the iterated array.
+- Object type assertions: `x as { width: number, height: number }` yields
+  `Ty::Object`, letting `js { ... }` escape blocks describe their shape.
+- Double-quoted strings support `{expr}` interpolation (e.g.
+  `label = "Order {tier}"`) alongside the existing backtick form.
+- The template-nesting depth guard (max 64) no longer relies on
+  `thread_local!`, keeping `sakko` clean under `no_std` + `alloc`.
+- New examples gallery in `Examples/` (counter, todo, form-validation,
+  effects-js, expressions, dashboard, and more), guarded by a rot protector:
+  every `Examples/*.sako` must parse and typecheck clean.
+
+### WASM bindings (`sakko-wasm`)
+
+New `crates/sakko-wasm` crate exposing the compiler to the browser:
+
+- `version` / `tokenize_json` / `parse_json` / `check_json` return JSON over a
+  typed DTO layer (tokens and the typed AST serialize directly; the typecheck
+  report is mirrored in owned DTO shapes with a stable camelCase schema).
+- `wasm-bindgen` + `js-sys` are `wasm32`-target-only dependencies; the
+  bound functions throw JS `Error`s whose message is the serialized error DTO.
+- Native unit tests run in the workspace gate; verified with `cargo check
+  --target wasm32-unknown-unknown`.
+
 ## [0.1.6] - 2026-07-10
 
 ### Changed

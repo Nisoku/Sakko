@@ -284,6 +284,9 @@ impl<'a> Parser<'a> {
 
         // @style "css-string" | @style { ... }
         if name == "style" {
+            if self.check(TokenKind::Equals) {
+                self.consume()?;
+            }
             if self.check(TokenKind::String) {
                 let value = self.consume()?.value;
                 return Ok(Modifier::Atcode {
@@ -395,7 +398,8 @@ impl<'a> Parser<'a> {
         Ok(ExprSnippet::parse(raw))
     }
 
-    /// `@class:name` or `@class="a b"` (static), `@class={expr}` (reactive).
+    /// `@class:name` or `@class="a b"` (static),
+    /// `@class={expr}` / `@class=["a","b"]` (reactive).
     fn parse_class(&mut self) -> Result<Modifier<'a>> {
         if self.check(TokenKind::Colon) {
             self.consume()?;
@@ -404,6 +408,10 @@ impl<'a> Parser<'a> {
                 name: "class".into(),
                 body: AtcodeBody::Text(name.value),
             });
+        }
+
+        if self.check(TokenKind::Equals) {
+            self.consume()?;
         }
 
         let expr = if self.check(TokenKind::String) {
@@ -416,9 +424,14 @@ impl<'a> Parser<'a> {
             let expr = self.parse_expr_snippet()?;
             self.expect(TokenKind::Rbrace, None)?;
             expr
+        } else if self.check(TokenKind::Lbracket) {
+            // Array form (`@class=["a","b"]`): bound the read at the element's
+            // `: value` separator so the class expression does not swallow the
+            // element body.
+            ExprSnippet::parse(self.parse_expression_until(|tok, _| tok.kind == TokenKind::Colon)?)
         } else {
             let err = self.error_at(
-                "@class requires ':name', a string, or an object body",
+                "@class requires ':name', a string, or an expression body",
                 self.peek(),
             );
             return Err(err);
