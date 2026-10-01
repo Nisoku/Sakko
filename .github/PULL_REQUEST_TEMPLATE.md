@@ -12,6 +12,6 @@
 
 ## Checklist
 
-- [ ] Tests pass (`cargo test`)
-- [ ] Lint passes (`cargo clippy -- -D warnings`)
-- [ ] Formatting passes (`cargo fmt --check`)
+- [ ] Tests pass (`cargo test --workspace --all-targets --all-features --locked`)
+- [ ] Lint passes (`cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`)
+- [ ] Formatting passes (`cargo fmt --all -- --check`)

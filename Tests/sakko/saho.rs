@@ -5,7 +5,7 @@ fn roundtrip(src: &str) {
     let trimmed = src.trim();
     let node = saho::parse(trimmed)
         .unwrap_or_else(|e| panic!("parse failed for {trimmed:?}: {} {:?}", e.message, e.span));
-    let out = saho::lower(&node, trimmed);
+    let out = saho::lower(&node, trimmed).unwrap_or_else(|| panic!("lower failed for {trimmed:?}"));
     assert_eq!(out, trimmed, "round-trip mismatch");
 }
 
@@ -173,10 +173,64 @@ fn rejected_sources() {
     // Empty / bare punctuation / unbalanced constructs must produce diags,
     // never panic.
     for src in ["", "+", ")", "(", "[1, 2", "{ a: ", "a ??", "`unterminated"] {
-        if src.trim().is_empty() {
-            continue;
-        }
         assert!(saho::parse(src).is_err(), "expected {src:?} to be rejected");
+    }
+}
+
+#[test]
+fn new_expression_shape() {
+    // `new` callees may only be member/index chains: in `new a.b(c)` the
+    // arguments belong to the constructor call, and `new Foo().bar` applies
+    // `.bar` to the constructed object (i.e. `(new Foo()).bar`).
+    let n = saho::parse("new Foo().bar").unwrap();
+    match &n.kind {
+        saho::EKind::Member {
+            obj,
+            name,
+            optional: false,
+        } => {
+            assert_eq!(name, "bar");
+            match &obj.kind {
+                saho::EKind::New { callee, args } => {
+                    assert!(matches!(&callee.kind, saho::EKind::Ident(_)));
+                    // `new Foo()` carries its (empty) constructor-arg list.
+                    assert!(args.as_ref().is_some_and(|a| a.is_empty()));
+                }
+                other => panic!("expected New callee, got {other:?}"),
+            }
+        }
+        other => panic!("expected Member, got {other:?}"),
+    }
+
+    let n = saho::parse("new a.b(c)").unwrap();
+    match &n.kind {
+        saho::EKind::New { callee, args } => {
+            match &callee.kind {
+                saho::EKind::Member { obj, name, .. } => {
+                    assert_eq!(name, "b");
+                    assert!(matches!(&obj.kind, saho::EKind::Ident(_)));
+                }
+                other => panic!("expected Member callee, got {other:?}"),
+            }
+            assert_eq!(args.as_ref().map(|a| a.len()), Some(1));
+        }
+        other => panic!("expected New, got {other:?}"),
+    }
+
+    // Post-instantiation calls still chain off the constructed object.
+    let n = saho::parse("new Date(entry.timestamp).toISOString()").unwrap();
+    match &n.kind {
+        saho::EKind::Call { callee, args, .. } => {
+            assert!(args.is_empty());
+            match &callee.kind {
+                saho::EKind::Member { obj, name, .. } => {
+                    assert_eq!(name, "toISOString");
+                    assert!(matches!(&obj.kind, saho::EKind::New { .. }));
+                }
+                other => panic!("expected Member callee, got {other:?}"),
+            }
+        }
+        other => panic!("expected Call, got {other:?}"),
     }
 }
 

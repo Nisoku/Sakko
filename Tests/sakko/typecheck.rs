@@ -92,6 +92,18 @@ fn happy_builtins() {
 }
 
 #[test]
+fn dom_globals_rejected_outside_js() {
+    snap(
+        "dom_globals_rejected_outside_js",
+        r#"<app {
+  text: "{document.title}"
+  text: "{window.innerWidth}"
+  text: "{localStorage.getItem('k')}"
+}>"#,
+    );
+}
+
+#[test]
 fn unknown_identifier() {
     snap(
         "unknown_identifier",

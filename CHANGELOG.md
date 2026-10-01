@@ -91,8 +91,11 @@ New `crates/sakko-wasm` crate exposing the compiler to the browser:
   report is mirrored in owned DTO shapes with a stable camelCase schema).
 - `wasm-bindgen` + `js-sys` are `wasm32`-target-only dependencies; the
   bound functions throw JS `Error`s whose message is the serialized error DTO.
-- Native unit tests run in the workspace gate; verified with `cargo check
-  --target wasm32-unknown-unknown`.
+- `[lib] crate-type = ["cdylib", "rlib"]`; a release `.wasm` builds under
+  `wasm32-unknown-unknown`.
+- Native unit tests run in the workspace gate; an opt-in end-to-end Node check
+  (`Tests/sakko-wasm/run-node-check.sh`) exercises the compiled `.wasm`
+  through the generated wasm-bindgen glue.
 
 ## [0.1.6] - 2026-07-10
 

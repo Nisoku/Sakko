@@ -144,3 +144,37 @@ fn backtick_inside_effect_body_preserves_template_literal() {
 fn unterminated_backtick_string_throws() {
     assert!(tokenize("`unclosed").is_err());
 }
+
+// Non-ASCII content
+
+#[test]
+fn double_quoted_string_with_non_ascii_content() {
+    let tokens = tokenize(r#""café piñata""#).unwrap();
+    let str = tokens.iter().find(|t| t.kind == K::String).unwrap();
+    assert_eq!(&*str.value, "café piñata");
+}
+
+#[test]
+fn backtick_string_with_non_ascii_content() {
+    let tokens = tokenize("`日本のお茶`").unwrap();
+    assert_eq!(tokens.len(), 1);
+    assert_eq!(tokens[0].kind, K::BacktickString);
+    assert_eq!(&*tokens[0].value, "日本のお茶");
+}
+
+#[test]
+fn bare_non_ascii_text_is_rejected() {
+    // Non-ASCII characters are allowed inside string literals but not as
+    // bare markup text, which is ASCII-only.
+    let err = tokenize("日本語 = 1").unwrap_err();
+    assert!(err.message.contains("Unexpected character"));
+}
+
+#[test]
+fn interpolated_string_prefixed_with_non_ascii_text() {
+    let tokens = tokenize("msg: \"héllo {name}\"").unwrap();
+    let types: Vec<K> = tokens.iter().map(|t| t.kind).collect();
+    assert!(types.contains(&K::InterpStart));
+    let expr = tokens.iter().find(|t| t.kind == K::Expr).unwrap();
+    assert_eq!(&*expr.value, "name");
+}

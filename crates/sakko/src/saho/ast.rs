@@ -291,27 +291,6 @@ pub enum BinOp {
 }
 
 impl BinOp {
-    /// Precedence tiers; higher binds tighter. Mirrors JS except that `??`
-    /// cannot be mixed with `&&`/`||` unparenthesized (enforced by typecheck).
-    pub fn precedence(self) -> u8 {
-        match self {
-            Self::Nullish | Self::Or | Self::And => 1,
-            Self::BitOr => 2,
-            Self::BitXor => 3,
-            Self::BitAnd => 4,
-            Self::EqEq | Self::NotEq => 5,
-            Self::Lt | Self::Gt | Self::LtE | Self::GtE | Self::In | Self::Instanceof => 6,
-            Self::Shl | Self::Shr | Self::UShr => 7,
-            Self::Add | Self::Sub => 8,
-            Self::Mul | Self::Div | Self::Rem => 9,
-            Self::Pow => 10,
-        }
-    }
-
-    pub fn right_assoc(self) -> bool {
-        matches!(self, Self::Pow)
-    }
-
     pub fn symbol(self) -> &'static str {
         match self {
             Self::Nullish => "??",

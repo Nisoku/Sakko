@@ -6,7 +6,7 @@
 
 **The modern DSL (Design Sub-Language) for describing UI trees.**
 
-Sakko is a bracket-based markup language that compiles to component trees. Write concise, readable markup. Get a structured AST, compile it to reactive JavaScript components, or use it as a standalone parser.
+Sakko is a bracket-based markup language for describing UI trees. Write concise, readable markup. Get a typed AST and a diagnostic report from the mature parser and typechecker, or use it as a standalone parser. (JavaScript codegen is under development.)
 
 ## What does it look like?
 
@@ -52,21 +52,26 @@ cargo add sakko
 ```rust
 use sakko::{parse_sakko, tokenize};
 
-// Tokenize source to tokens (useful for debugging)
-let tokens = tokenize("button(accent): Click me")?;
+fn main() -> sakko::Result<()> {
+    // Tokenize source to tokens (useful for debugging)
+    let tokens = tokenize("button(accent): Click me")?;
 
-// Parse to AST
-let ast = parse_sakko(r#"
+    // Parse to AST
+    let ast = parse_sakko(r#"
 <card {
   heading: "Hello"
   button: "Click"
 }>
 "#)?;
 
-println!("{ast:#?}");
+    println!("{ast:#?}");
+    Ok(())
+}
 ```
 
-The parser is zero-copy: AST nodes borrow their text straight from the source via spans, so parsing large templates allocates almost nothing beyond the token stream.
+The structure parser is low-alloc: AST nodes borrow their text straight from
+the source via spans, and token/line values are `Cow` borrows of that same
+source. Parsing large templates allocates little beyond those token vectors.
 
 ### AST Structure
 
@@ -99,6 +104,10 @@ Every Sakko document has one root block wrapped in angle brackets:
   ...children
 }>
 ```
+
+The root is implicit: `parse_sakko` wraps a file's top-level markup in a
+generated root node, so ports, lints and tooling all see a single unnamed
+root above the content.
 
 ### Block elements
 
@@ -280,7 +289,7 @@ text: "{a} + {b} = {a + b}"
 text: "Items: {items.map(i => i.name).join(', ')}"
 ```
 
-Expressions are parsed by **Saho** (`sakko::expr`), Sakko's embedded strict-expression language: Pratt-precedence parsing, template literals with nested substitutions, arrows, spread, optional chaining, the works. Every interpolation round-trips byte-for-byte through parse and lower.
+Expressions are parsed by **Saho** (`sakko::saho`), Sakko's embedded strict-expression language: Pratt-precedence parsing, template literals with nested substitutions, arrows, spread, optional chaining, the works. Every interpolation round-trips byte-for-byte through parse and lower.
 
 ## Compiling & Running
 
@@ -307,19 +316,19 @@ This emits JS you drop into a page alongside the Sairin runtime.
 ## Project structure
 
 ```text
-crates/sakko/       Rust implementation
-  src/lexer.rs      Tokenizer
-  src/parser.rs     Structure parser
-  src/expr/         Saho expression language (lexer + Pratt parser)
-  src/ast.rs        AST types (serde-ready)
-  tests/            Integration suites
-Examples/           Example .sako files
-Docs/               Documentation site (powered by DocMD)
+crates/sakko/        Rust implementation crate
+  src/saho/          Expression language (lexer + Pratt parser)
+  src/syntax/        Template tokenizer + structure parser
+  src/typecheck/     Typecheck pass
+crates/sakko-wasm/   WASM bindings
+Tests/sakko/         Integration test suites
+Examples/            Example .sako files
+Docs/                Documentation site (powered by DocMD)
 ```
 
 ## Development
 
-Requires [rustup](https://rustup.rs). The pinned toolchain is selected automatically.
+Requires [rustup](https://rustup.rs). The configured toolchain is selected automatically.
 
 ```bash
 cargo build      # build

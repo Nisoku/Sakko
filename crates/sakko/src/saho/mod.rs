@@ -17,8 +17,10 @@ use chumsky::{Parser, input::Input, span::SimpleSpan};
 const MAX_TEMPLATE_DEPTH: usize = 64;
 
 /// Lower a node back to its exact source bytes.
-pub fn lower<'a>(node: &Node, src: &'a str) -> &'a str {
-    &src[node.span.start as usize..node.span.end as usize]
+pub fn lower<'a>(node: &Node, src: &'a str) -> Option<&'a str> {
+    let start = node.span.start as usize;
+    let end = node.span.end as usize;
+    src.get(start..end)
 }
 
 /// Convert lexed tokens into the `(token, chumsky-span)` pairs the grammar
@@ -132,7 +134,12 @@ pub fn parse_body(src: &str) -> Result<Vec<Stmt>, Vec<ExprDiag>> {
             .parse(segment.map(eoi, |(t, s)| (t, s)))
             .into_output_errors();
         match stmt {
-            Some(stmts) => out.extend(stmts),
+            // Chumsky may recover and still produce output; surfacing those
+            // errors keeps recovered malformed segments diagnosable.
+            Some(stmts) => {
+                out.extend(stmts);
+                diags.extend(errs.into_iter().map(rich_to_diag));
+            }
             None => diags.extend(errs.into_iter().map(rich_to_diag)),
         }
     }

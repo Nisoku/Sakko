@@ -13,7 +13,7 @@ We pledge to make participation in this project a harassment-free experience for
 
 ## Enforcement
 
-Project maintainers are responsible for clarifying and enforcing standards. Instances of abusive behavior may be reported by contacting the project team.
+Project maintainers are responsible for clarifying and enforcing standards. Instances of abusive behavior may be reported privately to the project team at [nellowtcs@gmail.com](mailto:nellowtcs@gmail.com).
 
 ## Attribution
 

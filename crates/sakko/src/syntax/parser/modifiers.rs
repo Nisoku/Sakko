@@ -223,10 +223,8 @@ impl<'a> Parser<'a> {
             let token = self.consume()?;
 
             let next = self.peek();
-            let next_qualifies = next.is_some_and(|t| {
-                (t.kind == TokenKind::Ident || t.kind == TokenKind::String)
-                    && !self.check(TokenKind::Rparen)
-            });
+            let next_qualifies =
+                next.is_some_and(|t| t.kind == TokenKind::Ident || t.kind == TokenKind::String);
             if next_qualifies && (is_known_key(&token.value) || token.value.starts_with("data-")) {
                 let value = self.consume()?.value;
                 modifiers.push(Modifier::Pair {

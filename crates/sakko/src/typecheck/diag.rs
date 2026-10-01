@@ -66,8 +66,15 @@ pub struct Diagnostic {
 
 impl Diagnostic {
     pub fn render(&self) -> String {
-        let start = self.span.start as usize;
-        let end = (self.span.end as usize).clamp(start, self.snippet.len());
+        let char_boundary = |n: usize| {
+            let n = n.min(self.snippet.len());
+            (0..=n)
+                .rev()
+                .find(|&i| self.snippet.is_char_boundary(i))
+                .unwrap_or(0)
+        };
+        let start = char_boundary(self.span.start as usize);
+        let end = char_boundary((self.span.end as usize).clamp(start, self.snippet.len()));
 
         let line_start = self.snippet[..start].rfind('\n').map_or(0, |i| i + 1);
         let line_end = self.snippet[line_start..]

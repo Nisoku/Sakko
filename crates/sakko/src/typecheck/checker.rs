@@ -145,7 +145,9 @@ impl Checker {
                 Ty::Any
             }
             RawJs => {
-                let raw = x::lower(node, &self.snippet);
+                let Some(raw) = x::lower(node, &self.snippet) else {
+                    return Ty::Unknown;
+                };
                 let start = raw.find('{').map_or(raw.len(), |i| i + 1);
                 let body = &raw[start..raw.len().saturating_sub(1)];
                 self.js_escapes.push(JsEscape {
@@ -170,7 +172,7 @@ impl Checker {
                 target
             }
             This | Super | NewTarget => {
-                let src = x::lower(node, &self.snippet);
+                let src = x::lower(node, &self.snippet).unwrap_or("?");
                 self.report(
                     Code::UnknownIdent,
                     node.span,
@@ -380,7 +382,14 @@ impl Checker {
             && let Some(Resolved::Ns(ns)) = sc.lookup(g)
         {
             return match builtins::ns_member(ns, name) {
-                Some(ty) => {
+                Some(builtins::Member::Prop(ty)) => {
+                    if optional {
+                        Ty::union(ty.clone(), Ty::Undefined)
+                    } else {
+                        ty.clone()
+                    }
+                }
+                Some(builtins::Member::Method(ty)) => {
                     let key = (obj.span.start, obj.span.end);
                     self.sigs.insert(key, ty.clone());
                     if optional {

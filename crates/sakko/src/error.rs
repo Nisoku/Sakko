@@ -60,6 +60,9 @@ impl fmt::Display for SakkoError {
         if let Some(snippet) = &self.snippet {
             write!(f, "{}", snippet)?;
         }
+        if let Some(suggestion) = &self.suggestion {
+            write!(f, "\n  hint: {}", suggestion)?;
+        }
         Ok(())
     }
 }

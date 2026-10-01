@@ -398,7 +398,7 @@ fn tokenize_string_with_interpolation(
         tokens.push(Token {
             kind: TokenKind::String,
             value: Cow::Owned(text_buffer),
-            span: Span::new(0, 0),
+            span: Span::new(text_part_start, i),
             line: current_line,
             col: text_start_col,
         });

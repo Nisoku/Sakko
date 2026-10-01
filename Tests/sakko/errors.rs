@@ -272,7 +272,7 @@ fn parser_throws_on_just_lt_with_name() {
 }
 
 #[test]
-fn parser_duplicate_closing_gt_is_fine() {
+fn parser_accepts_empty_root_block() {
     let ast = parse_sakko("<page { }>").unwrap();
     assert_eq!(&*ast.name, "page");
 }

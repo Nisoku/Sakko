@@ -157,11 +157,11 @@ impl<'a> Parser<'a> {
 
             match token.kind {
                 TokenKind::Lparen => paren_depth += 1,
-                TokenKind::Rparen => paren_depth -= 1,
+                TokenKind::Rparen => paren_depth = paren_depth.saturating_sub(1),
                 TokenKind::Lbrace => brace_depth += 1,
-                TokenKind::Rbrace => brace_depth -= 1,
+                TokenKind::Rbrace => brace_depth = brace_depth.saturating_sub(1),
                 TokenKind::Lbracket => bracket_depth += 1,
-                TokenKind::Rbracket => bracket_depth -= 1,
+                TokenKind::Rbracket => bracket_depth = bracket_depth.saturating_sub(1),
                 _ => {}
             }
 

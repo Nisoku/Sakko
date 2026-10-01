@@ -6,23 +6,23 @@ Thanks for your interest in contributing!
 
 1. Fork the repository
 2. Clone your fork: `git clone https://github.com/your-username/Sakko.git`
-3. Install Rust via [rustup](https://rustup.rs) (the pinned toolchain in `rust-toolchain.toml` is used automatically)
+3. Install Rust via [rustup](https://rustup.rs) (the configured toolchain in `rust-toolchain.toml` is used automatically)
 4. Create a feature branch: `git checkout -b feat/your-feature`
 
 ## Development
 
 ```bash
-cargo build      # build the workspace
-cargo test       # run tests
-cargo clippy     # lint
-cargo fmt        # format
+cargo build --workspace                                       # build the workspace
+cargo test --workspace --all-targets --all-features --locked  # run tests
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings  # lint
+cargo fmt --all -- --check                                    # format
 ```
 
 ## Pull Requests
 
 - Keep changes focused. One feature or fix per PR.
 - Add tests for new functionality
-- Ensure all checks pass (`cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`)
+- Ensure all checks pass (`cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`, `cargo test --workspace --all-targets --all-features --locked`)
 - Update CHANGELOG.md if applicable
 
 ## Code Style

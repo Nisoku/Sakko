@@ -91,7 +91,10 @@ pub(crate) fn remap(node: Node, delta: u32) -> Node {
                     .collect::<Vec<_>>(),
             ),
             EKind::Fn { params, body } => EKind::Fn {
-                params,
+                params: params
+                    .into_iter()
+                    .map(|p| pat_map(p, delta))
+                    .collect::<Vec<_>>(),
                 body: body_map(body, delta),
             },
             EKind::Arrow {
@@ -99,7 +102,10 @@ pub(crate) fn remap(node: Node, delta: u32) -> Node {
                 body,
                 is_async,
             } => EKind::Arrow {
-                params,
+                params: params
+                    .into_iter()
+                    .map(|p| pat_map(p, delta))
+                    .collect::<Vec<_>>(),
                 body: body_map(body, delta),
                 is_async,
             },
@@ -203,6 +209,37 @@ fn arg_map(arg: Arg, delta: u32) -> Arg {
     }
 }
 
+/// Shift every expression span inside a pattern (default initializers, nested
+/// patterns) by `delta`, preserving all literal pattern data.
+fn pat_map(pat: Pat, delta: u32) -> Pat {
+    match pat {
+        Pat::Ident(n) => Pat::Ident(n),
+        Pat::Default { pat, init } => Pat::Default {
+            pat: Box::new(pat_map(*pat, delta)),
+            init: remap(init, delta),
+        },
+        Pat::Rest(p) => Pat::Rest(Box::new(pat_map(*p, delta))),
+        Pat::Array(pats) => Pat::Array(
+            pats.into_iter()
+                .map(|p| pat_map(p, delta))
+                .collect::<Vec<_>>(),
+        ),
+        Pat::Object(props) => Pat::Object(
+            props
+                .into_iter()
+                .map(|prop| match prop {
+                    ObjPatProp::Kv { key, pat } => ObjPatProp::Kv {
+                        key,
+                        pat: pat_map(pat, delta),
+                    },
+                    ObjPatProp::Shorthand(pat) => ObjPatProp::Shorthand(pat_map(pat, delta)),
+                    ObjPatProp::Rest(pat) => ObjPatProp::Rest(pat_map(pat, delta)),
+                })
+                .collect::<Vec<_>>(),
+        ),
+    }
+}
+
 fn body_map(body: Body, delta: u32) -> Body {
     match body {
         Body::Expr(n) => Body::Expr(Box::new(remap(*n, delta))),
@@ -292,6 +329,217 @@ fn elem_to_pattern(elem: Node) -> Result<Pat, String> {
 
 fn conv_plain(node: Node) -> Result<Pat, String> {
     elem_to_pattern(node)
+}
+
+/// The atomic expression set shared by the full chain and the `new` callee
+/// chain.
+fn primary_atoms<'a, I, E, B, P, T, N>(
+    expr: E,
+    block_body: B,
+    pat: P,
+    tpl_node: T,
+    new_atom: N,
+) -> impl Parser<'a, I, Node, Ex<'a>> + Clone
+where
+    I: BorrowInput<'a, Token = ETok, Span = SP>,
+    E: Parser<'a, I, Node, Ex<'a>> + Clone + 'a,
+    B: Parser<'a, I, Vec<Stmt>, Ex<'a>> + Clone + 'a,
+    P: Parser<'a, I, Pat, Ex<'a>> + Clone + 'a,
+    T: Parser<'a, I, Node, Ex<'a>> + Clone + 'a,
+    N: Parser<'a, I, Node, Ex<'a>> + Clone + 'a,
+{
+    let arrow_body = choice((
+        block_body.clone().map(Body::Block),
+        expr.clone().map(|e| Body::Expr(Box::new(e))),
+    ));
+
+    let group_elem = choice((
+        punct("...")
+            .ignore_then(expr.clone())
+            .map_with(|inner, e| Node {
+                kind: EKind::Spread(Box::new(inner)),
+                span: sp(e.span()),
+            }),
+        expr.clone(),
+    ));
+    let paren_group = group_elem
+        .separated_by(punct(","))
+        .allow_trailing()
+        .collect::<Vec<_>>()
+        .delimited_by(punct("("), punct(")"));
+
+    let paren_arrow = paren_group
+        .clone()
+        .then(punct("=>").ignore_then(arrow_body.clone()))
+        .try_map(|(elems, body), span| {
+            let mut params = Vec::with_capacity(elems.len());
+            for el in elems {
+                params.push(elem_to_pattern(el).map_err(|msg| Rich::custom(span, msg))?);
+            }
+            Ok(node(
+                EKind::Arrow {
+                    params,
+                    body,
+                    is_async: false,
+                },
+                span,
+            ))
+        });
+    let ident_arrow = select_ref! { ETok::Ident(s) => s.clone() }
+        .then(punct("=>").ignore_then(arrow_body.clone()))
+        .map_with(|(name, body), e| {
+            node(
+                EKind::Arrow {
+                    params: vec![Pat::Ident(name)],
+                    body,
+                    is_async: false,
+                },
+                e.span(),
+            )
+        });
+    let async_arrow = just(kw("async"))
+        .ignore_then(choice((paren_arrow.clone(), ident_arrow.clone())))
+        .map_with(|mut n, e| {
+            if let EKind::Arrow { is_async, .. } = &mut n.kind {
+                *is_async = true;
+            }
+            let sp: SP = e.span();
+            n.span.end = sp.end as u32;
+            n
+        });
+
+    let fn_params = pat
+        .separated_by(punct(","))
+        .allow_trailing()
+        .collect::<Vec<_>>()
+        .delimited_by(punct("("), punct(")"));
+    let fn_atom = just(kw("function"))
+        .ignore_then(select_ref! { ETok::Ident(s) => s.clone() }.or_not())
+        .ignore_then(fn_params)
+        .then(block_body.map(Body::Block))
+        .map_with(|(params, body), e| node(EKind::Fn { params, body }, e.span()));
+
+    let obj_lit = choice((
+        punct("...").ignore_then(expr.clone()).map(ObjProp::Spread),
+        choice((
+            punct("[")
+                .ignore_then(expr.clone())
+                .then_ignore(punct("]"))
+                .map(Key::Computed),
+            select_ref! { ETok::Ident(s) => Key::Ident(s.clone()) },
+            select_ref! { ETok::Str(s) => Key::Lit(s.clone()) },
+            select_ref! { ETok::Num(s) => Key::Lit(s.clone()) },
+        ))
+        .then_ignore(punct(":"))
+        .then(expr.clone())
+        .map(|(key, value)| ObjProp::Kv { key, value }),
+        select_ref! { ETok::Ident(s) => s.clone() }
+            .map_with(|n, e| ObjProp::Shorthand(node(EKind::Ident(n), e.span()))),
+    ))
+    .separated_by(punct(","))
+    .allow_trailing()
+    .collect::<Vec<_>>()
+    .delimited_by(punct("{"), punct("}"))
+    .map_with(|props, e| node(EKind::Object(props), e.span()));
+
+    let array_lit = choice((
+        punct("...")
+            .ignore_then(expr.clone())
+            .map_with(|inner, e| Node {
+                kind: EKind::Spread(Box::new(inner)),
+                span: sp(e.span()),
+            }),
+        expr.clone(),
+    ))
+    .separated_by(punct(","))
+    .allow_trailing()
+    .collect::<Vec<_>>()
+    .delimited_by(punct("["), punct("]"))
+    .map_with(|items, e| {
+        node(
+            EKind::Array(items.into_iter().map(Some).collect::<Vec<_>>()),
+            e.span(),
+        )
+    });
+
+    let raw_js = select_ref! { ETok::RawJs(_) => () }.map_with(|_, e| node(EKind::RawJs, e.span()));
+
+    choice((
+        fn_atom,
+        async_arrow,
+        new_atom,
+        tpl_node,
+        raw_js,
+        select_ref! { ETok::Num(t) => t.clone() }.map_with(|t, e| node(EKind::Num(t), e.span())),
+        select_ref! { ETok::Str(t) => t.clone() }.map_with(|t, e| node(EKind::Str(t), e.span())),
+        just(kw("true")).map_with(|_, e| node(EKind::Bool(true), e.span())),
+        just(kw("false")).map_with(|_, e| node(EKind::Bool(false), e.span())),
+        just(kw("null")).map_with(|_, e| node(EKind::Null, e.span())),
+        just(kw("undefined")).map_with(|_, e| node(EKind::Undefined, e.span())),
+        just(kw("this")).map_with(|_, e| node(EKind::This, e.span())),
+        just(kw("super")).map_with(|_, e| node(EKind::Super, e.span())),
+        ident_arrow,
+        paren_arrow,
+        obj_lit,
+        array_lit,
+        paren_group.try_map(|mut elems, span| match elems.len() {
+            0 => Err(Rich::custom(span, "empty parentheses")),
+            1 => {
+                let single = elems.remove(0);
+                Ok(node(EKind::Paren(Box::new(single)), span))
+            }
+            _ => Ok(node(EKind::Seq(elems), span)),
+        }),
+        select_ref! { ETok::Ident(s) => s.clone() }
+            .map_with(|n, e| node(EKind::Ident(n), e.span())),
+    ))
+}
+
+/// Apply one post operation to an accumulated chain node.
+fn chain_fold<'a, I>(
+    lhs: Node,
+    op: PostOp,
+    e: &mut chumsky::input::MapExtra<'a, '_, I, Ex<'a>>,
+) -> Node
+where
+    I: BorrowInput<'a, Token = ETok, Span = SP>,
+{
+    let sp: SimpleSpan = e.span();
+    let span = crate::span::Span {
+        start: lhs.span.start,
+        end: sp.end as u32,
+    };
+    let kind = match op {
+        PostOp::Member(name, optional) => EKind::Member {
+            obj: Box::new(lhs),
+            name,
+            optional,
+        },
+        PostOp::Index(index, optional) => EKind::Index {
+            obj: Box::new(lhs),
+            index: Box::new(index),
+            optional,
+        },
+        PostOp::Call(args, optional) => EKind::Call {
+            callee: Box::new(lhs),
+            args,
+            optional,
+        },
+        PostOp::Tpl(tpl) => EKind::TaggedTpl {
+            tag: Box::new(lhs),
+            tpl: Box::new(tpl),
+        },
+        PostOp::Update(uop) => EKind::Update {
+            op: uop,
+            prefix: false,
+            target: Box::new(lhs),
+        },
+        PostOp::As(ty) => EKind::Assert {
+            expr: Box::new(lhs),
+            ty,
+        },
+    };
+    Node { kind, span }
 }
 
 fn punct<'a, I>(sym: &'static str) -> impl Parser<'a, I, (), Ex<'a>> + Clone
@@ -518,309 +766,170 @@ where
 
         let chain = {
             let expr = expr.clone();
-            recursive(move |chain| {
-                let new_atom = just(kw("new"))
-                    .ignore_then(chain.clone())
-                    .then(call_args.clone().or_not())
-                    .map_with(|(callee, args), e| {
-                        node(
-                            EKind::New {
-                                callee: Box::new(callee),
-                                args,
-                            },
-                            e.span(),
-                        )
-                    });
+            let member_name = select_ref! { ETok::Ident(s) => s.clone() };
 
-                let arrow_body = choice((
-                    block_body.clone().map(Body::Block),
-                    expr.clone().map(|e| Body::Expr(Box::new(e))),
-                ));
-
-                let group_elem = choice((
-                    punct("...")
+            // Member and index access only, no calls or tagged templates.
+            let member_post = choice((
+                punct(".")
+                    .ignore_then(member_name)
+                    .map(|n| PostOp::Member(n, false)),
+                punct("?.").ignore_then(choice((
+                    member_name.map(|n| PostOp::Member(n, true)),
+                    punct("[")
                         .ignore_then(expr.clone())
-                        .map_with(|inner, e| Node {
-                            kind: EKind::Spread(Box::new(inner)),
-                            span: sp(e.span()),
-                        }),
-                    expr.clone(),
-                ));
-                let paren_group = group_elem
-                    .separated_by(punct(","))
-                    .allow_trailing()
-                    .collect::<Vec<_>>()
-                    .delimited_by(punct("("), punct(")"));
+                        .then_ignore(punct("]"))
+                        .map(|i| PostOp::Index(i, true)),
+                ))),
+                punct("[")
+                    .ignore_then(expr.clone())
+                    .then_ignore(punct("]"))
+                    .map(|i| PostOp::Index(i, false)),
+            ));
 
-                let paren_arrow = paren_group
-                    .clone()
-                    .then(punct("=>").ignore_then(arrow_body.clone()))
-                    .try_map(|(elems, body), span| {
-                        let mut params = Vec::with_capacity(elems.len());
-                        for el in elems {
-                            params
-                                .push(elem_to_pattern(el).map_err(|msg| Rich::custom(span, msg))?);
-                        }
-                        Ok(node(
-                            EKind::Arrow {
-                                params,
-                                body,
-                                is_async: false,
-                            },
-                            span,
-                        ))
-                    });
-                let ident_arrow = select_ref! { ETok::Ident(s) => s.clone() }
-                    .then(punct("=>").ignore_then(arrow_body.clone()))
-                    .map_with(|(name, body), e| {
-                        node(
-                            EKind::Arrow {
-                                params: vec![Pat::Ident(name)],
-                                body,
-                                is_async: false,
-                            },
-                            e.span(),
-                        )
-                    });
-                let async_arrow = just(kw("async"))
-                    .ignore_then(choice((paren_arrow.clone(), ident_arrow.clone())))
-                    .map_with(|mut n, e| {
-                        if let EKind::Arrow { is_async, .. } = &mut n.kind {
-                            *is_async = true;
-                        }
-                        let sp: SP = e.span();
-                        n.span.end = sp.end as u32;
-                        n
-                    });
+            // `new` callees may only be member/index chains: `new a.b(c)`
+            // instantiates `a.b` with arguments `[c]`, and in
+            // `new Foo().bar` the call binds to the newly-created object
+            // (i.e. `(new Foo()).bar`)
+            let member_chain = {
+                let mc_expr = expr.clone();
+                let mc_block = block_body.clone();
+                let mc_pat = pat.clone();
+                let mc_tpl = tpl_node;
+                let mc_call = call_args.clone();
+                recursive(move |mc| {
+                    let inner_new = just(kw("new"))
+                        .ignore_then(mc.clone())
+                        .then(mc_call.clone().or_not())
+                        .map_with(|(callee, args), e| {
+                            node(
+                                EKind::New {
+                                    callee: Box::new(callee),
+                                    args,
+                                },
+                                e.span(),
+                            )
+                        });
+                    let primary = primary_atoms(
+                        mc_expr.clone(),
+                        mc_block.clone(),
+                        mc_pat.clone(),
+                        mc_tpl,
+                        inner_new,
+                    );
+                    primary.foldl_with(member_post.clone().repeated(), chain_fold)
+                })
+            };
 
-                let fn_params = pat
-                    .separated_by(punct(","))
-                    .allow_trailing()
-                    .collect::<Vec<_>>()
-                    .delimited_by(punct("("), punct(")"));
-                let fn_atom = just(kw("function"))
-                    .ignore_then(select_ref! { ETok::Ident(s) => s.clone() }.or_not())
-                    .ignore_then(fn_params)
-                    .then(block_body.map(Body::Block))
-                    .map_with(|(params, body), e| node(EKind::Fn { params, body }, e.span()));
-
-                let obj_lit = choice((
-                    punct("...").ignore_then(expr.clone()).map(ObjProp::Spread),
-                    choice((
-                        punct("[")
-                            .ignore_then(expr.clone())
-                            .then_ignore(punct("]"))
-                            .map(Key::Computed),
-                        select_ref! { ETok::Ident(s) => Key::Ident(s.clone()) },
-                        select_ref! { ETok::Str(s) => Key::Lit(s.clone()) },
-                        select_ref! { ETok::Num(s) => Key::Lit(s.clone()) },
-                    ))
-                    .then_ignore(punct(":"))
-                    .then(expr.clone())
-                    .map(|(key, value)| ObjProp::Kv { key, value }),
-                    select_ref! { ETok::Ident(s) => s.clone() }
-                        .map_with(|n, e| ObjProp::Shorthand(node(EKind::Ident(n), e.span()))),
-                ))
-                .separated_by(punct(","))
-                .allow_trailing()
-                .collect::<Vec<_>>()
-                .delimited_by(punct("{"), punct("}"))
-                .map_with(|props, e| node(EKind::Object(props), e.span()));
-
-                let array_lit = choice((
-                    punct("...")
-                        .ignore_then(expr.clone())
-                        .map_with(|inner, e| Node {
-                            kind: EKind::Spread(Box::new(inner)),
-                            span: sp(e.span()),
-                        }),
-                    expr.clone(),
-                ))
-                .separated_by(punct(","))
-                .allow_trailing()
-                .collect::<Vec<_>>()
-                .delimited_by(punct("["), punct("]"))
-                .map_with(|items, e| {
+            let new_atom = just(kw("new"))
+                .ignore_then(member_chain.clone())
+                .then(call_args.clone().or_not())
+                .map_with(|(callee, args), e| {
                     node(
-                        EKind::Array(items.into_iter().map(Some).collect::<Vec<_>>()),
+                        EKind::New {
+                            callee: Box::new(callee),
+                            args,
+                        },
                         e.span(),
                     )
                 });
 
-                // `as` type annotations: primitives, `{ ... }` object types,
-                // `T[]`, and `T | null | undefined`.
-                let prim_ty = choice((
-                    just(kw("number")).to(TypeAst::Number),
-                    just(kw("string")).to(TypeAst::Str),
-                    just(kw("boolean")).to(TypeAst::Bool),
-                    just(kw("null")).to(TypeAst::Null),
-                    just(kw("undefined")).to(TypeAst::Undefined),
-                    just(kw("unknown")).to(TypeAst::Unknown),
-                ));
-                let obj_ty = {
-                    let prop = choice((
-                        select_ref! { ETok::Ident(s) => Key::Ident(s.clone()) },
-                        select_ref! { ETok::Str(s) => Key::Lit(s.clone()) },
-                    ))
-                    .then_ignore(punct(":"))
-                    .then(prim_ty.clone())
-                    .map(|(key, ty)| ObjTyProp {
-                        name: match key {
-                            Key::Ident(s) => s,
-                            Key::Lit(s) => s,
-                            _ => String::default(),
-                        },
-                        ty,
-                    });
-                    prop.separated_by(punct(","))
-                        .allow_trailing()
-                        .collect::<Vec<_>>()
-                        .delimited_by(punct("{"), punct("}"))
-                        .map(TypeAst::Object)
-                };
-                let base_ty = choice((prim_ty, obj_ty));
-                let as_type = base_ty
-                    .then(
-                        punct("[")
-                            .ignore_then(punct("]"))
-                            .repeated()
-                            .collect::<Vec<_>>(),
-                    )
-                    .map(|(base, arrs)| {
-                        arrs.into_iter()
-                            .fold(base, |t, ()| TypeAst::Array(Box::new(t)))
+            let primary = primary_atoms(
+                expr.clone(),
+                block_body.clone(),
+                pat.clone(),
+                tpl_node,
+                new_atom,
+            );
+
+            // `as` type annotations: primitives, `{ ... }` object types,
+            // `T[]`, and `T | null | undefined`.
+            let prim_ty = choice((
+                just(kw("number")).to(TypeAst::Number),
+                just(kw("string")).to(TypeAst::Str),
+                just(kw("boolean")).to(TypeAst::Bool),
+                just(kw("null")).to(TypeAst::Null),
+                just(kw("undefined")).to(TypeAst::Undefined),
+                just(kw("unknown")).to(TypeAst::Unknown),
+            ));
+            let obj_ty = {
+                let prop = choice((
+                    select_ref! { ETok::Ident(s) => Key::Ident(s.clone()) },
+                    select_ref! { ETok::Str(s) => Key::Lit(s.clone()) },
+                ))
+                .then_ignore(punct(":"))
+                .then(prim_ty.clone())
+                .map(|(key, ty)| ObjTyProp {
+                    name: match key {
+                        Key::Ident(s) => s,
+                        Key::Lit(s) => s,
+                        _ => String::default(),
+                    },
+                    ty,
+                });
+                prop.separated_by(punct(","))
+                    .allow_trailing()
+                    .collect::<Vec<_>>()
+                    .delimited_by(punct("{"), punct("}"))
+                    .map(TypeAst::Object)
+            };
+            let base_ty = choice((prim_ty, obj_ty));
+            let as_type = base_ty
+                .then(
+                    punct("[")
+                        .ignore_then(punct("]"))
+                        .repeated()
+                        .collect::<Vec<_>>(),
+                )
+                .map(|(base, arrs)| {
+                    arrs.into_iter()
+                        .fold(base, |t, ()| TypeAst::Array(Box::new(t)))
+                })
+                .then(
+                    punct("|")
+                        .ignore_then(choice((
+                            just(kw("null")).to(()),
+                            just(kw("undefined")).to(()),
+                        )))
+                        .or_not(),
+                )
+                .map(|(base, nullish)| match nullish {
+                    Some(()) => TypeAst::Nullable(Box::new(base)),
+                    None => base,
+                });
+
+            let tpl_in_post = tpl_tok.try_map(move |parts: RawTpl, span| {
+                resolve_template(parts, depth)
+                    .map(|resolved| Node {
+                        kind: EKind::Template(resolved),
+                        span: sp(span),
                     })
-                    .then(
-                        punct("|")
-                            .ignore_then(choice((
-                                just(kw("null")).to(()),
-                                just(kw("undefined")).to(()),
-                            )))
-                            .or_not(),
-                    )
-                    .map(|(base, nullish)| match nullish {
-                        Some(()) => TypeAst::Nullable(Box::new(base)),
-                        None => base,
-                    });
+                    .map_err(|msg| Rich::custom(span, msg))
+            });
 
-                let raw_js = select_ref! { ETok::RawJs(_) => () }
-                    .map_with(|_, e| node(EKind::RawJs, e.span()));
-
-                let primary = choice((
-                    fn_atom,
-                    async_arrow,
-                    new_atom,
-                    tpl_node,
-                    raw_js,
-                    select_ref! { ETok::Num(t) => t.clone() }
-                        .map_with(|t, e| node(EKind::Num(t), e.span())),
-                    select_ref! { ETok::Str(t) => t.clone() }
-                        .map_with(|t, e| node(EKind::Str(t), e.span())),
-                    just(kw("true")).map_with(|_, e| node(EKind::Bool(true), e.span())),
-                    just(kw("false")).map_with(|_, e| node(EKind::Bool(false), e.span())),
-                    just(kw("null")).map_with(|_, e| node(EKind::Null, e.span())),
-                    just(kw("undefined")).map_with(|_, e| node(EKind::Undefined, e.span())),
-                    just(kw("this")).map_with(|_, e| node(EKind::This, e.span())),
-                    just(kw("super")).map_with(|_, e| node(EKind::Super, e.span())),
-                    select_ref! { ETok::Ident(s) => s.clone() }
-                        .then(punct("=>").ignore_then(arrow_body.clone()))
-                        .map_with(|(name, body), e| {
-                            node(
-                                EKind::Arrow {
-                                    params: vec![Pat::Ident(name)],
-                                    body,
-                                    is_async: false,
-                                },
-                                e.span(),
-                            )
-                        }),
-                    paren_arrow.clone(),
-                    obj_lit,
-                    array_lit,
-                    paren_group.try_map(|mut elems, span| match elems.len() {
-                        0 => Err(Rich::custom(span, "empty parentheses")),
-                        1 => {
-                            let single = elems.remove(0);
-                            Ok(node(EKind::Paren(Box::new(single)), span))
-                        }
-                        _ => Ok(node(EKind::Seq(elems), span)),
-                    }),
-                    select_ref! { ETok::Ident(s) => s.clone() }
-                        .map_with(|n, e| node(EKind::Ident(n), e.span())),
-                ));
-
-                let member_name = select_ref! { ETok::Ident(s) => s.clone() };
-                let post_op = choice((
-                    punct(".")
-                        .ignore_then(member_name)
-                        .map(|n| PostOp::Member(n, false)),
-                    punct("?.").ignore_then(choice((
-                        member_name.map(|n| PostOp::Member(n, true)),
-                        punct("[")
-                            .ignore_then(expr.clone())
-                            .then_ignore(punct("]"))
-                            .map(|i| PostOp::Index(i, true)),
-                        call_args.clone().map(|args| PostOp::Call(args, true)),
-                    ))),
+            let post_op = choice((
+                punct(".")
+                    .ignore_then(member_name)
+                    .map(|n| PostOp::Member(n, false)),
+                punct("?.").ignore_then(choice((
+                    member_name.map(|n| PostOp::Member(n, true)),
                     punct("[")
                         .ignore_then(expr.clone())
                         .then_ignore(punct("]"))
-                        .map(|i| PostOp::Index(i, false)),
-                    call_args.map(|args| PostOp::Call(args, false)),
-                    tpl_tok
-                        .try_map(move |parts: RawTpl, span| {
-                            resolve_template(parts, depth)
-                                .map(|resolved| Node {
-                                    kind: EKind::Template(resolved),
-                                    span: sp(span),
-                                })
-                                .map_err(|msg| Rich::custom(span, msg))
-                        })
-                        .map(PostOp::Tpl),
-                    upd_op(UpdateOp::Inc).map(PostOp::Update),
-                    upd_op(UpdateOp::Dec).map(PostOp::Update),
-                    just(kw("as")).ignore_then(as_type).map(PostOp::As),
-                ));
+                        .map(|i| PostOp::Index(i, true)),
+                    call_args.clone().map(|args| PostOp::Call(args, true)),
+                ))),
+                punct("[")
+                    .ignore_then(expr.clone())
+                    .then_ignore(punct("]"))
+                    .map(|i| PostOp::Index(i, false)),
+                call_args.map(|args| PostOp::Call(args, false)),
+                tpl_in_post.map(PostOp::Tpl),
+                upd_op(UpdateOp::Inc).map(PostOp::Update),
+                upd_op(UpdateOp::Dec).map(PostOp::Update),
+                just(kw("as")).ignore_then(as_type).map(PostOp::As),
+            ));
 
-                primary.foldl_with(post_op.repeated(), |lhs, op, e| {
-                    let sp: SimpleSpan = e.span();
-                    let span = crate::span::Span {
-                        start: lhs.span.start,
-                        end: sp.end as u32,
-                    };
-                    let kind = match op {
-                        PostOp::Member(name, optional) => EKind::Member {
-                            obj: Box::new(lhs),
-                            name,
-                            optional,
-                        },
-                        PostOp::Index(index, optional) => EKind::Index {
-                            obj: Box::new(lhs),
-                            index: Box::new(index),
-                            optional,
-                        },
-                        PostOp::Call(args, optional) => EKind::Call {
-                            callee: Box::new(lhs),
-                            args,
-                            optional,
-                        },
-                        PostOp::Tpl(tpl) => EKind::TaggedTpl {
-                            tag: Box::new(lhs),
-                            tpl: Box::new(tpl),
-                        },
-                        PostOp::Update(uop) => EKind::Update {
-                            op: uop,
-                            prefix: false,
-                            target: Box::new(lhs),
-                        },
-                        PostOp::As(ty) => EKind::Assert {
-                            expr: Box::new(lhs),
-                            ty,
-                        },
-                    };
-                    Node { kind, span }
-                })
-            })
+            primary.foldl_with(post_op.repeated(), chain_fold)
         };
 
         let pre_op = choice((

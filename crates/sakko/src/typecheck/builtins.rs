@@ -41,32 +41,31 @@ fn prop(ty: Ty) -> Option<Member> {
     Some(Member::Prop(ty))
 }
 
-pub fn ns_member(ns: Ns, name: &str) -> Option<Ty> {
+pub fn ns_member(ns: Ns, name: &str) -> Option<Member> {
     use Ty::*;
-    let num_fn = || Function;
     match ns {
         Ns::Math => match name {
-            "PI" | "E" | "LN2" | "LN10" => Some(Number),
-            _ if MATH_FNS.contains(&name) => Some(num_fn()),
+            "PI" | "E" | "LN2" | "LN10" => prop(Number),
+            _ if MATH_FNS.contains(&name) => method(Function),
             _ => None,
         },
         Ns::Json => match name {
-            "parse" | "stringify" => Some(Function),
+            "parse" | "stringify" => method(Function),
             _ => None,
         },
         Ns::NumberCtor => match name {
-            "parseFloat" | "parseInt" | "isNaN" | "isFinite" => Some(Function),
+            "parseFloat" | "parseInt" | "isNaN" | "isFinite" => method(Function),
             "MAX_SAFE_INTEGER" | "MIN_SAFE_INTEGER" | "EPSILON" | "MAX_VALUE" | "MIN_VALUE" => {
-                Some(Number)
+                prop(Number)
             }
             _ => None,
         },
         Ns::StringCtor => match name {
-            "fromCharCode" | "fromCodePoint" | "raw" => Some(Function),
+            "fromCharCode" | "fromCodePoint" | "raw" => method(Function),
             _ => None,
         },
         Ns::Console => match name {
-            "log" | "warn" | "error" | "info" | "debug" | "table" | "trace" => Some(Function),
+            "log" | "warn" | "error" | "info" | "debug" | "table" | "trace" => method(Function),
             _ => None,
         },
     }

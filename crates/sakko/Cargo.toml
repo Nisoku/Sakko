@@ -3,6 +3,7 @@ name = "sakko"
 description = "Sakko programming language: lexer, parser, and AST"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 autotests = false
