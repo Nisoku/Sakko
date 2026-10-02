@@ -1,24 +1,27 @@
 ---
 title: "Sakko Language Reference"
-description: "Complete syntax guide for the Sakko bracket-based DSL"
+description: "Complete syntax guide for the Sakko DSL"
 order: 1
 ---
 
 # Sakko Language Reference
 
-The Sakko DSL is a bracket-based markup language for describing UI trees. It compiles to Sazami component trees which render to the DOM.
+Sakko is a bracket-based markup language for describing UI trees. It compiles
+to Sairin component trees, which render through Sazami. The expression
+sub-language used inside reactive payloads is called **Sahō** (作法), which is a
+strict, typechecked JavaScript subset.
 
 ---
 
-## File Extension
+## File extension
 
 Sakko files use the `.sako` extension.
 
 ---
 
-## Syntax Overview
+## Syntax overview
 
-### Root Blocks
+### Root blocks
 
 Every `.sako` file has one root block wrapped in angle brackets:
 
@@ -28,9 +31,9 @@ Every `.sako` file has one root block wrapped in angle brackets:
 }>
 ```
 
-> **Note:** The `compileSakko()` function auto-wraps source that is missing `<>` brackets, so both `<card { ... }>` and `card { ... }` work when using the API. However, always have the habit to add `<>` brackets.
->
-> When you omit the angle brackets, the parser uses an internal sentinel name (`__sakko_wrapper__`) which appears in compiled output as the CSS class `__sakko_wrapper__`, component name `SakkoWrapper`, and any hashed IDs derived from that name. Always prefer explicit `<tagname { ... }>` syntax to avoid these internal names in your artifacts.
+The parser also accepts a bare `name { ... }` without angle brackets, using the
+internal sentinel name `__sakko_wrapper__`. Prefer explicit `<tagname { ... }>`
+syntax to avoid internal names in your artifacts.
 
 **Example:**
 
@@ -40,7 +43,7 @@ Every `.sako` file has one root block wrapped in angle brackets:
 }>
 ```
 
-### Block Elements
+### Block elements
 
 Block elements contain child elements inside curly braces:
 
@@ -51,17 +54,7 @@ element {
 }
 ```
 
-**Example:**
-
-```sako
-<card {
-  text(bold): "Title"
-  text(dim): "Subtitle"
-  button: "Click"
-}>
-```
-
-### Inline Elements
+### Inline elements
 
 Inline elements have no children: just a name, optional modifiers, and a value:
 
@@ -70,15 +63,7 @@ name: value
 name(modifiers): value
 ```
 
-**Example:**
-
-```sako
-text: Hello
-button(accent large): Save
-icon: play
-```
-
-### Void Elements
+### Void elements
 
 Elements that need no value or children can stand alone:
 
@@ -87,15 +72,15 @@ divider;
 spacer(large);
 ```
 
-These are parsed as inline elements with an empty value. Useful for separators, spacers, and structural markers.
+These are parsed as inline elements with an empty value.
 
 ---
 
 ## Modifiers
 
-Modifiers are placed in parentheses after the element name. They configure the element's appearance and behavior.
+Modifiers are placed in parentheses after the element name.
 
-### Flags (Boolean)
+### Flags (boolean)
 
 Space-separated tokens:
 
@@ -105,36 +90,24 @@ card(curved): { ... }
 text(dim small): Label
 ```
 
-### Key-Value Pairs
+### Key-value pairs
 
-Some tokens take a following value. Values can be bare identifiers or quoted strings:
+Some tokens take a following value. Values can be bare identifiers or quoted
+strings:
 
 ```sako
 grid(cols 3 gap large): [...]
-row(gap medium): [...]
 input(placeholder "Enter your name" type "email"): ""
-image(src "photo.jpg" alt "A photo"): ""
 ```
 
-The parser recognizes these keys as pairs: `cols`, `gap`, `radius`, `size`, `variant`, `layout`, `placeholder`, `type`, `src`, `alt`, `icon`, `label`, `value`, `center-point`, `min`, `max`, `step`, `name`, `heading`, `slot`, `active`, `open`, `message`, `title`, `disabled`, `checked`, `selected`, `removable`, `indeterminate`, `single-open`, `duration`, `no-close`, `shape`, `variant`, `required`, `placeholder`, `multiple`, `for`, `cols`, `md:cols`, `lg:cols`, `direction`.
+The parser recognizes keys such as `cols`, `gap`, `radius`, `size`, `variant`,
+`layout`, `placeholder`, `type`, `src`, `alt`, `icon`, `label`, `value`,
+`min`, `max`, `step`, `name`, `heading`, `slot`, `active`, `open`, `message`,
+`title`, `disabled`, `checked`, `selected`, `removable`, `required`,
+`multiple`, `for`, `direction`, and responsive variants like `md:cols`.
 
-### Modifier Categories
-
-| Category | Values | Maps To |
-|----------|--------|---------|
-| **Variant** | `accent`, `primary`, `secondary`, `danger`, `success` | `variant` attribute |
-| **Tone** | `dim`, `dimmer` | `tone` attribute |
-| **Size** | `small`, `medium`, `large`, `xlarge` | `size` attribute |
-| **Weight** | `bold`, `normal`, `light` | `weight` attribute |
-| **Layout** | `row`, `column` | `layout` attribute |
-| **Alignment** | `center`, `start`, `end` | `align` attribute |
-| **Justify** | `space-between`, `space-around` | `justify` attribute |
-| **Shape** | `round`, `square`, `pill` | `shape` attribute |
-| **Curvomorphism** | `curved`, `flat` | `curved` attribute |
-| **State** | `disabled`, `active`, `loading`, `checked` | boolean attributes |
-| **Wrap** | `wrap`, `nowrap` | `wrap` attribute |
-
-> **Strict validation:** Unknown modifier flags throw an error. If you need a custom modifier, add it to `MODIFIER_MAP` before use.
+> **Strict validation:** Unknown modifier flags are errors. Custom modifiers can
+> be added to the recognized set.
 
 ---
 
@@ -150,16 +123,14 @@ Lists group multiple sibling elements, with items separated by commas:
 }>
 ```
 
-Lists can appear after a colon or directly:
+Lists appear after a colon or directly:
 
 ```sako
-row: {button: A, button: B}
+row: [button: A, button: B]
 row {button: A, button: B}
 ```
 
----
-
-## Inline Siblings with Semicolons
+### Inline siblings with semicolons
 
 Use semicolons to place multiple inline elements on one line:
 
@@ -169,20 +140,21 @@ Use semicolons to place multiple inline elements on one line:
 }>
 ```
 
-Semicolons work at any nesting level, including root:
-
-```sako
-<page {
-  text: A; text: B; text: C
-}>
-```
-
 ---
 
 ## Strings
 
 - **Bare words** for simple values (no spaces): `text: Hello`
 - **Quoted strings** for values with spaces or special characters: `text: "Hello World"`
+- **Interpolated strings** in double quotes support `{expr}`:
+
+```sako
+text: "Price = {price * qty}"
+```
+
+In expression snippets (`@state`, `@derived`, etc.) both backtick
+(`` `Price = ${price}` ``) and double-quote (`"Price = {price}"`) forms
+interpolate.
 
 ---
 
@@ -202,7 +174,8 @@ Single-line comments start with `//`:
 
 ## Reactivity
 
-Sakko supports inline reactivity through atcodes. These compile to Sairin signals for reactive UI.
+Sakko supports inline reactivity through atcode declarations. These compile to
+Sairin signals for reactive UI.
 
 ### State
 
@@ -214,14 +187,22 @@ Declare reactive state with `@state`:
     count = 0
     step = 1
   }
-  
+
   text: "Count: {count}"
 }>
 ```
 
-The `@state` block declares variables that can be read and written. Values are initialized with JavaScript expressions.
+`@state` declares variables that can be read and written. Values are
+initialized with Sahō expressions. Types may be annotated with `as`:
 
-### Derived State
+```sako
+@state {
+  count = 0
+  label = "x" as string
+}
+```
+
+### Derived state
 
 Compute derived values with `@derived`:
 
@@ -230,13 +211,14 @@ Compute derived values with `@derived`:
   @state { items = [] }
   @derived {
     count = items.length
-    isEmpty = items.length === 0
+    isEmpty = items.length == 0
   }
   text: "{count} items"
 }>
 ```
 
-Derived values automatically update when their dependencies change.
+Derived values are computed (immutable); reassigning one is an error
+(SKT010).
 
 ### Effects
 
@@ -245,31 +227,34 @@ Run side effects with `@effect`:
 ```sako
 <app {
   @state { count = 0 }
-  
+
   @effect {
     console.log("Count changed:", count)
-    document.title = `Count: ${count}`
+    js { document.title = `Count: ${count}` }
   }
-  
+
   button @on:click { count++ }: "Increment"
 }>
 ```
 
+`document`/`window` are **not** in the global manifest. DOM access like
+`document.title` works only inside `js { ... }` escape blocks.
 Effects run when any referenced state changes.
 
-### Event Handlers
+### Event handlers
 
 Handle DOM events with `@on:event`:
 
 ```sako
 button @on:click { count++ }: "Click"
 input @on:input { value = e.target.value }: ""
-div @on:mouseenter { isHovered = true }: "Hover"
 ```
 
-The handler body is JavaScript. Reference state directly and use `.set()` to update.
+The handler body is Sahō. The event parameter `e` has type `unknown`;
+navigation and calls on `unknown` are free, and you may assert its shape with
+`as`.
 
-### Two-way Binding
+### Two-way binding
 
 Bind input elements with `@bind`:
 
@@ -279,24 +264,63 @@ Bind input elements with `@bind`:
 <select @bind="value": "">
 ```
 
-The bound signal syncs automatically with the input value.
+The bound signal syncs automatically with the input value. `@bind` must target
+a `@state` variable (SKT007 otherwise).
 
-### Reactive Classes
+### Conditionals (`@if`)
+
+`if` statements are supported inside handlers and `@effect` bodies:
+
+```sako
+button @on:click {
+  email = email.trim()
+  if emailValid {
+    submitted = true
+  } else {
+    error = "Invalid email"
+  }
+}: "Submit"
+```
+
+### Iteration (`@each`)
+
+Iterate over an array with `@each="item in source"`:
+
+```sako
+<todo {
+  @state {
+    items = []
+    visible = []
+  }
+
+  column(gap small) @each="item in visible": [
+    row @on:click { item.done = !item.done }:
+      [checkbox(checked = item.done), text: item.text]
+  ]
+}>
+```
+
+The loop variable is typed from the array's element type.
+
+### Reactive classes
 
 Add dynamic CSS classes with `@class`:
 
 ```sako
-<div @class="theme">
-  content
-</div>
+<div @class="theme">content</div>
+<button @class={isActive ? "active" : "inactive"}>...</button>
 ```
 
 The `@class` directive accepts:
-- A string: `text: "bold"`
-- An array: `text: ["bold", "large"]`
-- An object: `text: { active: isActive, disabled: isDisabled }`
+- A **string** expression: `@class="theme"`
+- An **array** of class names: `@class=["bold", "large"]`
+- A **braced** expression: `@class={theme}`, `@class={count > 5 ? "warn" : ""}`
 
-Class changes are reflected immediately on the element.
+The value is typechecked as a class-string (string or array of strings,
+SKT015 otherwise). Class changes are reflected immediately on the element.
+
+> **Note:** object-form `@class={ key: cond }` is not supported and produces
+> SKT015. Use a `@derived` string/array expression instead.
 
 ### Interpolation
 
@@ -308,67 +332,127 @@ text: "{a} + {b} = {a + b}"
 text: "Items: {items.length}"
 ```
 
-Interpolation compiles to effects that update the text when dependencies change.
+Interpolation compiles to effects that update the text when dependencies
+change.
 
 ---
 
-## Complete Example
+## Sahō expression language
+
+The embedded expression language is a strict JS subset.
+
+### Equality is always strict
+
+`==` / `!=` are the only comparison operators and are **strict** (no coerced
+comparison). `===` and `!==` are hard errors: "Saho equality is always strict;
+use '=='".
+
+### Unknown and `as` assertions
+
+Values from dynamic sources (`e`, `js { }`, API data) have type `unknown`:
+
+- Navigation (`.prop`, `[i]`) and calls on `unknown` are **free** (result
+  `unknown`).
+- Arithmetic, comparisons, and typed assignment require an `as` assertion
+  first.
+- New postfix type assertions:
 
 ```sako
-<player {
-  // Main card with horizontal layout
-  card(row medium center curved) {
-    coverart(round): "album.jpg"
+x as number
+items as string[]
+maybe as string | null
+obj as { width: number, height: number }
+```
 
-    details(column gap small) {
-      text(bold large): "Midnight City"
-      text(dim): "M83"
-      badge(accent): "Synthwave"
-    }
+Impossible casts between disjoint concrete types are rejected (SKT013).
 
-    controls(row gap small) {
-      icon-btn: previous;
-      icon-btn(accent large): play;
-      icon-btn: next
+### `js { }` escape hatch
+
+`js { ... }` is the Rust-`unsafe` analogy: the body is emitted byte-for-byte,
+always types as `unknown`, and is recorded in the compile report
+(`Report::js_escapes`) for audits. Use it for code Sahō cannot express:
+
+```sako
+@state {
+  screen = js {
+    if (typeof window !== "undefined") {
+      return { width: window.innerWidth, height: window.innerHeight }
     }
+    return { width: 0, height: 0 }
+  } as { width: number, height: number }
+}
+```
+
+The body is syntax-validated at build time (never semantically checked).
+
+### Builtins
+
+`console`, `Math`, `JSON`, `Number`, `String`, `Array` methods, plus `fetch`,
+`setTimeout`, `clearTimeout`, `setInterval`, `clearInterval`. DOM globals are
+reachable only through `js { }`.
+
+---
+
+## Complete example
+
+```sako
+<todo {
+  @state {
+    input = ""
+    items = []
+    filter = "all"
   }
 
-  // Queue section
-  card(curved medium) {
-    heading: "Up Next"
+  @derived {
+    remaining = items.filter(item => !item.done).length
+    visible = filter == "active"
+      ? items.filter(item => !item.done)
+      : filter == "done"
+        ? items.filter(item => item.done)
+        : items
+  }
 
-    column(gap small): [
-      row(space-between gap medium) {
-        text: "Track 1"
-        text(dim small): "3:45"
-      },
-      row(space-between gap medium) {
-        text: "Track 2"
-        text(dim small): "4:12"
-      }
+  heading(xlarge): "Todos"
+
+  column(gap small): [
+    row(gap small): [
+      input @bind="input" placeholder="What needs doing?": "",
+      button(accent) @on:click {
+        input = input.trim()
+        if input != "" {
+          items.push({ text: input, done: false })
+          input = ""
+        }
+      }: "Add"
+    ],
+    row: [
+      button(filter == "all" ? accent : none) @on:click { filter = "all" }: "All",
+      button(filter == "active" ? accent : none) @on:click { filter = "active" }: "Active",
+      button(filter == "done" ? accent : none) @on:click { filter = "done" }: "Done"
+    ],
+    text(dim small): "{remaining} remaining",
+    column(gap small) @each="item in visible": [
+      row @on:click { item.done = !item.done }:
+        [checkbox checked="item.done", text(item.done ? "strikethrough" : ""): item.text]
     ]
-  }
-
-  // Bottom controls
-  row(space-between gap large) {
-    button(dim): Library
-    button(accent): Discover
-    button(dim): Settings
-  }
+  ]
 }>
 ```
 
 ---
 
-## AST Output
+## AST output
 
-The parser produces an AST with these node types:
+The parser produces an AST with node types derived from the document language:
 
 | Node Type | Fields | Description |
 |-----------|--------|-------------|
-| `root` | `name`, `modifiers`, `children` | Top-level container |
-| `element` | `name`, `modifiers`, `children` | Block element with children |
-| `inline` | `name`, `modifiers`, `value` | Leaf element with text value |
-| `list` | `items` | Comma-separated group |
+| `RootNode` | `name`, `modifiers`, `declarations`, `children` | Top-level container |
+| `ElementNode` | `name`, `modifiers`, `children` | Block element with children |
+| `InlineNode` | `name`, `modifiers`, `value` | Leaf element with text value |
+| `ListNode` | `items` | Comma-separated group |
 
-Modifiers are either `{ type: "flag", value: string }` or `{ type: "pair", key: string, value: string }`.
+Reactive payloads are pre-parsed into typed `ExprSnippet` / `BlockSnippet`
+nodes at parse time; the typechecker walks them directly.
+
+Modifiers are `{ type: "flag", value }` or `{ type: "pair", key, value }`.
