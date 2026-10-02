@@ -1,0 +1,5 @@
+error[SKT009]: cannot iterate over a value of type 'number | unknown[]'
+  --> @each
+   |
+ 1 | visible
+   | ^^^^^^^

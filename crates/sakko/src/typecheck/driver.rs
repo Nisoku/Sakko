@@ -293,6 +293,25 @@ fn each_item_type(each: &crate::syntax::ast::EachSpec, sc: &Scopes) -> Ty {
         Some(Resolved::Var(b)) => match b.ty {
             Ty::Array(Some(inner)) => *inner,
             Ty::Array(None) | Ty::Str | Ty::Unknown => Ty::Any,
+            // A union of arrays (e.g. a ternary returning either branch of
+            // `items.filter(...)`) keeps the common element type when every
+            // member agrees.
+            Ty::Union(members) => {
+                let mut elem = Ty::Any;
+                for m in &members {
+                    let e = match m {
+                        Ty::Array(Some(inner)) => (**inner).clone(),
+                        Ty::Array(None) | Ty::Str | Ty::Unknown | Ty::Any => Ty::Any,
+                        other => other.clone(),
+                    };
+                    elem = if elem == Ty::Any {
+                        e
+                    } else {
+                        Ty::union(elem, e)
+                    };
+                }
+                elem
+            }
             other => other,
         },
         _ => Ty::Any,
@@ -313,7 +332,18 @@ fn check_each(each: &crate::syntax::ast::EachSpec, sc: &Scopes, out: &mut Report
         Resolved::Var(b) => b.ty,
         Resolved::Ns(_) => Ty::Function,
     });
-    if !matches!(ty, Some(Ty::Array(_) | Ty::Str | Ty::Any)) {
+    let iterable = match &ty {
+        Some(Ty::Array(_) | Ty::Str | Ty::Any) => true,
+        // Every member of a union must be iterable on its own.
+        Some(Ty::Union(members)) => members.iter().all(|m| {
+            matches!(
+                m,
+                Ty::Array(_) | Ty::Str | Ty::Any | Ty::Null | Ty::Undefined
+            )
+        }),
+        _ => false,
+    };
+    if !iterable {
         let (code, message) = match ty {
             Some(t) => (
                 Code::BadEachSource,

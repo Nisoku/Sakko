@@ -125,28 +125,37 @@ impl<'a> Parser<'a> {
 
             if self.check(TokenKind::Ident) && self.peek().map(|t| &*t.value) == Some("const") {
                 self.consume()?;
+                if self.peek().map(|t| t.kind) != Some(TokenKind::Ident) {
+                    let err = self.error_at("Expected identifier after 'const'", self.peek());
+                    return Err(err);
+                }
             }
 
             let var_token = self.peek();
-            if var_token.map(|t| t.kind) != Some(TokenKind::Ident) {
+            let is_var_decl = var_token.map(|t| t.kind) == Some(TokenKind::Ident)
+                && self.peek_ahead_is(TokenKind::Equals);
+
+            if !is_var_decl {
+                // Mirror `@state`: an identifier that is not part of a `name =`
+                // pair is only tolerated once at least one declaration parsed,
+                // otherwise it would silently swallow the malformed entry.
+                if declarations.is_empty() {
+                    let err = self.error_at("Expected variable declaration", var_token);
+                    return Err(err);
+                }
                 break;
             }
 
             let var_name = self.consume()?.value;
+            self.expect(TokenKind::Equals, None)?;
+            let expr = self.parse_expr_snippet()?;
+            declarations.push(DerivedVar {
+                name: var_name,
+                expr,
+            });
 
-            if self.check(TokenKind::Equals) {
+            if self.check(TokenKind::Semi) || self.check(TokenKind::Comma) {
                 self.consume()?;
-                let expr = self.parse_expr_snippet()?;
-                declarations.push(DerivedVar {
-                    name: var_name,
-                    expr,
-                });
-
-                if self.check(TokenKind::Semi) || self.check(TokenKind::Comma) {
-                    self.consume()?;
-                }
-            } else {
-                break;
             }
         }
 

@@ -31,6 +31,8 @@ fn snap(name: &str, src: &str) {
         )
     });
 
+    // Compare against LF regardless of how the snapshot was checked out
+    let expected = expected.replace("\r\n", "\n");
     assert_eq!(actual, expected, "snapshot mismatch for {name}");
 }
 
@@ -359,6 +361,64 @@ fn class_rejects_non_string_values() {
   }
   div @class={n}: "x"
   div @class={ { active: on } }: "y"
+}>"#,
+    );
+}
+
+#[test]
+fn method_call_return_types_flow() {
+    // `infer_member` records the signature under the whole `obj.name` span so
+    // `callee_ret` finds it; otherwise every method call degrades to `any` and
+    // bogus members on the result go unreported.
+    snap(
+        "method_call_return_types_flow",
+        r#"<app {
+  @effect {
+    const i = "hi".indexOf("h")
+    console.log(i.bogusProp)
+    const parts = "a,b".split(",")
+    console.log(parts.bogusProp)
+    const up = "hi".toUpperCase()
+    console.log(up.length)
+  }
+  text: "A"
+}>"#,
+    );
+}
+
+#[test]
+fn each_accepts_union_of_arrays() {
+    // Method return types now flow through `@derived`, so a ternary of array
+    // branches is a *union* of arrays. `@each` must still accept it, and the
+    // bound item keeps the branches' common element type.
+    snap(
+        "each_accepts_union_of_arrays",
+        r#"<app {
+  @state {
+    items = []
+    mode = "all"
+  }
+  @derived {
+    visible = mode == "active" ? items.filter(i => !i.done) : items
+  }
+  li @each="item in visible": item.text
+}>"#,
+    );
+}
+
+#[test]
+fn each_rejects_non_iterable_union_member() {
+    snap(
+        "each_rejects_non_iterable_union_member",
+        r#"<app {
+  @state {
+    items = []
+    count = 0
+  }
+  @derived {
+    visible = count > 0 ? items : count
+  }
+  li @each="item in visible": "x"
 }>"#,
     );
 }

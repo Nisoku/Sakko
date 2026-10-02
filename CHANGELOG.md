@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Stack overflow on deeply nested template literals. The nesting cap was only
+  enforced while parsing, after the lexer had already recursed; the limit is
+  now checked during lexing, so pathological input returns the
+  "template literal nested too deeply" diagnostic instead of aborting.
+- `@derived` no longer silently swallows a malformed declaration. A bare
+  identifier or missing `=` is now reported as "Expected variable
+  declaration", matching `@state`.
+- Method call return types now reach their call sites. The signature table
+  was keyed on the receiver's span while lookups used the whole `obj.name`
+  span, so every method call degraded to `any` and bogus members on the result
+  went unreported.
+- `@each` accepts a union of arrays and unions of strings, keeping the
+  branches' common element type for the bound item. Non-iterable union
+  members are still rejected.
+- Windows CI: typecheck snapshots no longer mismatch under a CRLF checkout.
+  Added a `.gitattributes` normalizing the working tree to LF, and the
+  snapshot comparison itself now ignores CRLF differences.
+
 ### Crate refactor
 
 Internal restructuring of the `sakko` crate with no public API changes:
@@ -11,7 +31,9 @@ Internal restructuring of the `sakko` crate with no public API changes:
   (`syntax::parser::{text,elements,modifiers,atcodes}`,
   `typecheck::{checker,driver,report}`).
 - Operator spellings have a single source of truth (`symbol()` methods plus
-  an `ASSIGN_OPS` table driving both AST conversion and parsing).
+  an `ASSIGN_OPS` table driving both AST conversion and parsing). The
+  typechecker now calls those `symbol()` methods instead of keeping a second
+  copy of the table.
 - Hard-denied `clippy::unwrap_used` / `expect_used` / `panic`; all
   fallible lexer/parser paths now propagate errors instead. Unit tests for
   the type lattice moved to an integration test target.

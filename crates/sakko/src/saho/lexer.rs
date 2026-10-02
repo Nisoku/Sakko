@@ -1,3 +1,4 @@
+use super::MAX_TEMPLATE_DEPTH;
 use crate::span::Span;
 
 /// A lexical token inside an expression source.
@@ -141,7 +142,7 @@ pub fn lex(src: &str) -> Result<Vec<(ETok, Span)>, ExprDiag> {
             }
             b'`' => {
                 let start = i;
-                let parts = lex_template(src, &mut i)?;
+                let parts = lex_template(src, &mut i, 0)?;
                 toks.push((ETok::Template(parts), Span::new(start, i)));
             }
             b'0'..=b'9' | b'.' if b != b'.' || next_is_digit(bytes, i + 1) => {
@@ -331,7 +332,7 @@ fn lex_interp_string(src: &str, i: &mut usize) -> Result<Option<Vec<TplPart>>, E
                 parts.push(TplPart::Quasi(src[quasi_start..*i].to_owned()));
                 *i += 1;
                 let subst_start = *i;
-                let subst_src = scan_substitution(src, i)?;
+                let subst_src = scan_substitution(src, i, 0)?;
                 let abs = Span::new(subst_start, subst_start + subst_src.len());
                 parts.push(TplPart::Subst(Subst {
                     text: subst_src.to_owned(),
@@ -346,11 +347,19 @@ fn lex_interp_string(src: &str, i: &mut usize) -> Result<Option<Vec<TplPart>>, E
 
 /// Scan a template literal starting at `` ` `` and advance `i` past the
 /// closing backtick. Substitution sources are recorded verbatim; nested
-/// templates inside substitutions recurse.
-fn lex_template(src: &str, i: &mut usize) -> Result<Vec<TplPart>, ExprDiag> {
+/// templates inside substitutions recurse. `depth` counts enclosing template
+/// literals and is capped at [`MAX_TEMPLATE_DEPTH`] so pathological nesting
+/// reports a diagnostic instead of overflowing the stack.
+fn lex_template(src: &str, i: &mut usize, depth: usize) -> Result<Vec<TplPart>, ExprDiag> {
     let bytes = src.as_bytes();
     let len = bytes.len();
     let open = *i;
+    if depth >= MAX_TEMPLATE_DEPTH {
+        return Err(ExprDiag::new(
+            Span::new(open, len),
+            "template literal nested too deeply",
+        ));
+    }
     *i += 1;
 
     let mut parts = Vec::new();
@@ -374,7 +383,7 @@ fn lex_template(src: &str, i: &mut usize) -> Result<Vec<TplPart>, ExprDiag> {
                 parts.push(TplPart::Quasi(src[quasi_start..*i].to_owned()));
                 *i += 2;
                 let subst_start = *i;
-                let subst_src = scan_substitution(src, i)?;
+                let subst_src = scan_substitution(src, i, depth)?;
                 let abs = Span::new(subst_start, subst_start + subst_src.len());
                 parts.push(TplPart::Subst(Subst {
                     text: subst_src.to_owned(),
@@ -389,8 +398,13 @@ fn lex_template(src: &str, i: &mut usize) -> Result<Vec<TplPart>, ExprDiag> {
 
 /// Starting just after `${`, scan to the matching `}` accounting for nested
 /// braces, strings, comments, and templates. Returns the substitution source
-/// and advances `i` past the closing brace.
-fn scan_substitution<'a>(src: &'a str, i: &mut usize) -> Result<&'a str, ExprDiag> {
+/// and advances `i` past the closing brace. `tpl_depth` is the nesting depth
+/// of the template literal this substitution belongs to.
+fn scan_substitution<'a>(
+    src: &'a str,
+    i: &mut usize,
+    tpl_depth: usize,
+) -> Result<&'a str, ExprDiag> {
     let bytes = src.as_bytes();
     let len = bytes.len();
     let start = *i;
@@ -415,7 +429,7 @@ fn scan_substitution<'a>(src: &'a str, i: &mut usize) -> Result<&'a str, ExprDia
             }
             b'"' | b'\'' => skip_string(bytes, i)?,
             b'`' => {
-                lex_template(src, i)?;
+                lex_template(src, i, tpl_depth + 1)?;
             }
             b'/' if *i + 1 < len && bytes[*i + 1] == b'/' => {
                 while *i < len && bytes[*i] != b'\n' {

@@ -232,7 +232,7 @@ impl Checker {
                 obj,
                 name,
                 optional,
-            } => self.infer_member(obj, name, *optional, sc),
+            } => self.infer_member(node, obj, name, *optional, sc),
             Index {
                 obj,
                 index,
@@ -291,10 +291,7 @@ impl Checker {
                     self.report(
                         Code::AssignMismatch,
                         target.span,
-                        format!(
-                            "cannot apply '{}' to a value of type '{t}'",
-                            update_symbol(*op)
-                        ),
+                        format!("cannot apply '{}' to a value of type '{t}'", op.symbol()),
                     );
                 }
                 Ty::Number
@@ -375,7 +372,17 @@ impl Checker {
         }
     }
 
-    fn infer_member(&mut self, obj: &Node, name: &str, optional: bool, sc: &mut Scopes) -> Ty {
+    /// `node` is the whole `obj.name` member expression; `callee_ret` looks the
+    /// signature up by that node's span when the member is called, so the key
+    /// must be recorded against `node.span` rather than `obj.span`.
+    fn infer_member(
+        &mut self,
+        node: &Node,
+        obj: &Node,
+        name: &str,
+        optional: bool,
+        sc: &mut Scopes,
+    ) -> Ty {
         let ot = self.infer(obj, sc);
 
         if let x::EKind::Ident(g) = &obj.kind
@@ -390,7 +397,7 @@ impl Checker {
                     }
                 }
                 Some(builtins::Member::Method(ty)) => {
-                    let key = (obj.span.start, obj.span.end);
+                    let key = (node.span.start, node.span.end);
                     self.sigs.insert(key, ty.clone());
                     if optional {
                         Ty::union(Ty::Function, Ty::Undefined)
@@ -421,7 +428,7 @@ impl Checker {
         match resolved {
             Some((access_ty, sig)) => {
                 if let Some(sig) = sig {
-                    let key = (obj.span.start, obj.span.end);
+                    let key = (node.span.start, node.span.end);
                     self.sigs.insert(key, sig);
                 }
                 if optional {
@@ -497,7 +504,7 @@ impl Checker {
                             node.span,
                             format!(
                                 "operator '{}' cannot be applied to '{lt}' and '{rt}'; assert with 'as number' first",
-                                bin_symbol(op)
+                                op.symbol()
                             ),
                         );
                     } else {
@@ -506,7 +513,7 @@ impl Checker {
                             node.span,
                             format!(
                                 "operator '{}' cannot be applied to '{lt}' and '{rt}'",
-                                bin_symbol(op)
+                                op.symbol()
                             ),
                         );
                     }
@@ -522,7 +529,7 @@ impl Checker {
                             node.span,
                             format!(
                                 "operator '{}' cannot be applied to '{lt}' and '{rt}'; assert with 'as number' first",
-                                bin_symbol(op)
+                                op.symbol()
                             ),
                         );
                     } else {
@@ -531,7 +538,7 @@ impl Checker {
                             node.span,
                             format!(
                                 "operator '{}' cannot be applied to '{lt}' and '{rt}'",
-                                bin_symbol(op)
+                                op.symbol()
                             ),
                         );
                     }
@@ -701,42 +708,6 @@ impl Checker {
                 }
             }
         }
-    }
-}
-
-fn bin_symbol(op: x::BinOp) -> &'static str {
-    use x::BinOp::*;
-    match op {
-        Nullish => "??",
-        Or => "||",
-        And => "&&",
-        BitOr => "|",
-        BitXor => "^",
-        BitAnd => "&",
-        EqEq => "==",
-        NotEq => "!=",
-        Lt => "<",
-        Gt => ">",
-        LtE => "<=",
-        GtE => ">=",
-        In => "in",
-        Instanceof => "instanceof",
-        Shl => "<<",
-        Shr => ">>",
-        UShr => ">>>",
-        Add => "+",
-        Sub => "-",
-        Mul => "*",
-        Div => "/",
-        Rem => "%",
-        Pow => "**",
-    }
-}
-
-fn update_symbol(op: x::UpdateOp) -> &'static str {
-    match op {
-        x::UpdateOp::Inc => "++",
-        x::UpdateOp::Dec => "--",
     }
 }
 

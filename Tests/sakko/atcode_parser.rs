@@ -69,6 +69,36 @@ fn parses_derived_declaration() {
 }
 
 #[test]
+fn derived_rejects_malformed_declarations() {
+    // A bare identifier or a missing `=` must be diagnosed rather than
+    // silently ending the declaration list, matching `@state`.
+    for (body, needle) in [
+        ("count", "Expected variable declaration"),
+        ("= 5", "Expected variable declaration"),
+        ("const", "Expected identifier after 'const'"),
+    ] {
+        let input = format!("<app {{\n @derived {{\n  {body}\n }}\n text: \"A\"\n}}>");
+        let err = parse_sakko(&input).expect_err(&format!("{body} should be rejected"));
+        assert!(
+            err.message.contains(needle),
+            "unexpected message for {body:?}: {}",
+            err.message
+        );
+    }
+
+    // Well-formed forms keep working: empty, bare (unbraced), multi, and
+    // comma-separated.
+    for input in [
+        "<app {\n @derived {\n }\n text: \"A\"\n}>",
+        "<app {\n @derived count = a.length\n text: \"A\"\n}>",
+        "<app {\n @derived {\n  count = a.length\n }\n text: \"A\"\n}>",
+        "<app {\n @derived {\n  count = a.length,\n  other = b.length,\n }\n text: \"A\"\n}>",
+    ] {
+        parse_sakko(input).unwrap_or_else(|e| panic!("{input:?} should parse: {e}"));
+    }
+}
+
+#[test]
 fn parses_on_event_modifier() {
     let input = "<app {\n      @state {\n        count = 0\n      }\n      \n      button @on:click {\n        count++\n      }: \"Increment\"\n    }>";
 

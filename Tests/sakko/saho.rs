@@ -45,6 +45,41 @@ fn templates_with_substitutions() {
 }
 
 #[test]
+fn deeply_nested_templates_error_instead_of_overflowing() {
+    // The lexer recurses through `lex_template`/`scan_substitution`, so the
+    // nesting cap must be enforced during lexing. Without it, pathological
+    // input overflows the stack instead of returning a diagnostic.
+    let build = |n: usize| {
+        let mut s = String::new();
+        for _ in 0..n {
+            s.push_str("${`");
+        }
+        s.push('x');
+        for _ in 0..n {
+            s.push_str("`}");
+        }
+        s
+    };
+
+    for n in [64usize, 65, 100, 1000, 100_000] {
+        let src = build(n);
+        assert!(
+            saho::parse(&src).is_err(),
+            "expected an error at nesting depth {n}"
+        );
+    }
+
+    // Once the lexer's own cap trips, the message is the nesting diagnostic.
+    let src = build(100_000);
+    let err = saho::parse(&src).expect_err("expected an error");
+    assert!(
+        err.message.contains("nested too deeply"),
+        "unexpected message: {}",
+        err.message
+    );
+}
+
+#[test]
 fn operators_and_precedence() {
     roundtrip("a + b - c");
     roundtrip("a * b / c % d");
@@ -156,6 +191,25 @@ fn comments_and_whitespace() {
     roundtrip("/* lead */ a /* mid */ + /* tail */ b");
     roundtrip("a\n  +\n\tb");
     roundtrip("f(\n  a,\n  b,\n)");
+}
+
+#[test]
+fn statement_split_ignores_newlines_inside_groups() {
+    // A depth-0 line break is a statement boundary, but newlines nested in
+    // brackets (or immediately before a closing bracket) are not. Closers are
+    // the only tokens that pop depth, and they never *start* a boundary.
+    let cases: &[(&str, usize)] = &[
+        ("let f = (a,\n  b) => a + b;\nlet g = 1;", 2),
+        ("const f = (a, b) => (c,\n  d);\nlet g = 1;", 2),
+        ("let f = (a => (b,\n  c));\nlet g = 1;", 2),
+        ("f(\n  a,\n  b,\n)", 1),
+        ("let xs = [\n  1,\n  2,\n];\nlet n = xs.length;", 2),
+        ("let o = {\n  a: 1,\n};\nlet v = o.a;", 2),
+    ];
+    for (src, want) in cases {
+        let stmts = saho::parse_body(src).unwrap_or_else(|d| panic!("diags for {src:?}: {d:?}"));
+        assert_eq!(stmts.len(), *want, "wrong statement count for {src:?}");
+    }
 }
 
 #[test]
