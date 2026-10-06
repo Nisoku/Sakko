@@ -15,14 +15,19 @@ pub fn version() -> String {
 }
 
 /// Lex `source` and return its tokens as JSON (an array of `Token` objects).
+/// A lex failure is returned as an error carrying a [`dto::ErrorDto`] JSON
+/// payload, matching [`check_json`].
 pub fn tokenize_json(source: &str) -> Result<String, String> {
-    let tokens = sakko::syntax::lexer::tokenize(source).map_err(|e| e.to_string())?;
+    let tokens = sakko::syntax::lexer::tokenize(source)
+        .map_err(|e| serialize(&dto::ErrorDto::from(&e)).unwrap_or_else(|e2| e2))?;
     serialize(&tokens)
 }
 
-/// Parse `source` and return its typed AST as JSON.
+/// Parse `source` and return its typed AST as JSON. A parse failure is
+/// returned as an error carrying a [`dto::ErrorDto`] JSON payload.
 pub fn parse_json(source: &str) -> Result<String, String> {
-    let ast = sakko::parse_sakko(source).map_err(|e| e.to_string())?;
+    let ast = sakko::parse_sakko(source)
+        .map_err(|e| serialize(&dto::ErrorDto::from(&e)).unwrap_or_else(|e2| e2))?;
     serialize(&ast)
 }
 

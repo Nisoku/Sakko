@@ -71,7 +71,7 @@ fn parses_derived_declaration() {
 #[test]
 fn derived_rejects_malformed_declarations() {
     // A bare identifier or a missing `=` must be diagnosed rather than
-    // silently ending the declaration list, matching `@state`.
+    // silently ending the declaration list.
     for (body, needle) in [
         ("count", "Expected variable declaration"),
         ("= 5", "Expected variable declaration"),
@@ -266,4 +266,98 @@ fn parses_if_with_identifier_no_quotes() {
             body: AtcodeBody::Expr(ExprSnippet { raw, .. }),
         } if name == "if" && raw.as_ref() == "isVisible"
     ));
+}
+
+#[test]
+fn each_rejects_non_identifier_binding_in_string_form() {
+    // The token form requires a single `Ident`; the quoted form must not
+    // accept a name like "row item".
+    let bad = "<app {\n  @state { xs = [] }\n  li @each=\"row item in xs\": \"x\"\n}>";
+    let err = parse_sakko(bad).expect_err("should reject a multi-word binding");
+    assert!(
+        err.message.contains("Expected a single identifier"),
+        "unexpected message: {}",
+        err.message
+    );
+
+    for good in [
+        "<app {\n  @state { xs = [] }\n  li @each=\"item in xs\": \"x\"\n}>",
+        "<app {\n  @state { xs = [] }\n  li @each=\"i$1 in xs\": \"x\"\n}>",
+    ] {
+        parse_sakko(good).unwrap_or_else(|e| panic!("{good:?} should parse: {e}"));
+    }
+}
+
+#[test]
+fn parses_style_inside_parenthesized_modifiers() {
+    // `button(@style="color: red")` must accept the optional `=`, matching the
+    // unparenthesized `button @style="color: red"` form.
+    let ast = parse_sakko("<app {\n  button(@style=\"color: red\"): \"x\"\n}>")
+        .expect("parenthesized @style should parse");
+
+    let child = &ast.children[0];
+    let mods = expect_inline(child).1;
+    assert!(
+        mods.iter()
+            .any(|m| matches!(m, Modifier::Atcode { name, .. } if name == "style")),
+        "expected a @style modifier, got {:?}",
+        mods
+    );
+}
+
+#[test]
+fn parses_attribute_pairs_with_equals_inside_parens() {
+    // `key="value"` inside a parenthesized modifier list used to be routed into
+    // the class-expression path, which refused to start at a lone `=` and so
+    // consumed nothing -- spinning forever. It must parse as a Pair.
+    let ast = parse_sakko("<app {\n  div(placeholder=\"What needs doing?\"): \"\"\n}>")
+        .expect("known-key pair should parse");
+
+    let child = &ast.children[0];
+    let mods = expect_inline(child).1;
+    assert!(
+        mods.iter()
+            .any(|m| matches!(m, Modifier::Pair { key, .. } if key == "placeholder")),
+        "expected a placeholder Pair, got {:?}",
+        mods
+    );
+}
+
+#[test]
+fn keeps_bare_flags_as_flags() {
+    // Pairing is decided by what follows the ident, never by key membership
+    // alone: `gap` is both a flag and a known key.
+    let ast = parse_sakko("<app {\n  row(gap small): \"\"\n}>").expect("flags should parse");
+
+    let child = &ast.children[0];
+    let mods = expect_inline(child).1;
+    assert!(
+        matches!(mods.first(), Some(Modifier::Pair { key, value }) if key == "gap" && value == "small"),
+        "expected gap=small to stay a bare-token pair, got {:?}",
+        mods
+    );
+
+    // A lone ident with nothing after it remains a flag.
+    let ast = parse_sakko("<app {\n  div(accent): \"\"\n}>").expect("flag should parse");
+    let mods = expect_inline(&ast.children[0]).1;
+    assert!(
+        mods.iter().all(|m| matches!(m, Modifier::Flag { .. })),
+        "expected a flag, got {:?}",
+        mods
+    );
+}
+
+#[test]
+fn unmatched_closer_does_not_run_the_expression_scan_to_eof() {
+    // `paren/brace/bracket` depth used `saturating_sub`, which floors at
+    // `i32::MIN`, not 0. A stray closer went negative, so the depth-0 guard
+    // never held again and the scan consumed everything to end of input.
+    let input = r#"<app { @state { xs = ["a"] } text @class={a]}: "after" }>"#;
+    let ast = parse_sakko(input)
+        .unwrap_or_else(|e| panic!("should stop at the closing brace: {}", e.message));
+    assert_eq!(
+        ast.children.len(),
+        1,
+        "the trailing element after the class expression must still be parsed"
+    );
 }

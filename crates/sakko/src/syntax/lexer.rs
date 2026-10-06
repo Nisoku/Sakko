@@ -118,7 +118,9 @@ pub fn tokenize(input: &str) -> Result<Vec<Token<'_>>> {
             while scan_end < len && !input[scan_end..].starts_with(quote) {
                 if input[scan_end..].starts_with('\\') {
                     let Some(esc) = char_at(input, scan_end + 1) else {
-                        scan_end += 2;
+                        // Trailing backslash: stop at `len` so the slice below
+                        // stays in bounds and the unterminated-literal path runs.
+                        scan_end = (scan_end + 2).min(len);
                         continue;
                     };
                     scan_end += 1 + esc.len_utf8();

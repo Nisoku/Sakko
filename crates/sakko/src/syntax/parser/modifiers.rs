@@ -126,6 +126,10 @@ impl<'a> Parser<'a> {
                 }
 
                 if name == "style" {
+                    // Accept the optional `=`, matching the unparenthesized form.
+                    if self.check(TokenKind::Equals) {
+                        self.consume()?;
+                    }
                     if self.check(TokenKind::String) {
                         let body = self.consume()?.value;
                         modifiers.push(Modifier::Atcode {
@@ -222,10 +226,22 @@ impl<'a> Parser<'a> {
             }
             let token = self.consume()?;
 
-            let next = self.peek();
-            let next_qualifies =
-                next.is_some_and(|t| t.kind == TokenKind::Ident || t.kind == TokenKind::String);
+            // `key="v"` / `key="v" other` must pair up, but a bare ident may be either a
+            // flag (`div(gap)`) or a key whose value follows as a bare token
+            // (`disabled input`). So decide by what actually follows rather than
+            // by the key's membership in KNOWN_KEYS: `gap` is both a flag and a
+            // known key, and deciding by membership turns valid `div(gap small)`
+            // into an error.
+            let next_qualifies = self.peek().is_some_and(|t| {
+                matches!(
+                    t.kind,
+                    TokenKind::Equals | TokenKind::String | TokenKind::Ident
+                )
+            });
             if next_qualifies && (is_known_key(&token.value) || token.value.starts_with("data-")) {
+                if self.check(TokenKind::Equals) {
+                    self.consume()?;
+                }
                 let value = self.consume()?.value;
                 modifiers.push(Modifier::Pair {
                     key: token.value,
@@ -352,25 +368,34 @@ impl<'a> Parser<'a> {
         };
         match tok.kind {
             TokenKind::String | TokenKind::BacktickString | TokenKind::InterpStart => true,
-            TokenKind::Ident => matches!(
-                self.peek_ahead(1).map(|n| n.kind),
-                Some(
-                    TokenKind::Lt
-                        | TokenKind::Gt
-                        | TokenKind::Lparen
-                        | TokenKind::Lbracket
-                        | TokenKind::Dot
-                        | TokenKind::Plus
-                        | TokenKind::Minus
-                        | TokenKind::Star
-                        | TokenKind::Pipe
-                        | TokenKind::Ampersand
-                        | TokenKind::Bang
-                        | TokenKind::Question
-                        | TokenKind::Percent
-                        | TokenKind::Equals
+            TokenKind::Ident => {
+                let next = self.peek_ahead(1).map(|n| n.kind);
+                if next == Some(TokenKind::Equals) {
+                    // `key == other` is a comparison, but `key="value"` is an
+                    // attribute pair. `parse_expression_until` refuses to start
+                    // an expression at a lone `=`, so treating one as an
+                    // expression start consumes nothing and loops forever.
+                    return self.peek_ahead(2).map(|n| n.kind) == Some(TokenKind::Equals);
+                }
+                matches!(
+                    next,
+                    Some(
+                        TokenKind::Lt
+                            | TokenKind::Gt
+                            | TokenKind::Lparen
+                            | TokenKind::Lbracket
+                            | TokenKind::Dot
+                            | TokenKind::Plus
+                            | TokenKind::Minus
+                            | TokenKind::Star
+                            | TokenKind::Pipe
+                            | TokenKind::Ampersand
+                            | TokenKind::Bang
+                            | TokenKind::Question
+                            | TokenKind::Percent
+                    )
                 )
-            ),
+            }
             _ => false,
         }
     }

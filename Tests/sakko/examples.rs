@@ -11,9 +11,15 @@ fn every_example_parses_and_typechecks() {
     let dir = examples_dir();
     let mut entries: Vec<PathBuf> = std::fs::read_dir(&dir)
         .unwrap_or_else(|e| panic!("cannot read Examples/ at {}: {e}", dir.display()))
-        .filter_map(Result::ok)
-        .filter(|e| e.file_name().to_string_lossy().ends_with(".sako"))
-        .map(|e| e.path())
+        .map(|entry| {
+            entry
+                .unwrap_or_else(|e| panic!("cannot read entry in {}: {e}", dir.display()))
+                .path()
+        })
+        .filter(|p| {
+            p.file_name()
+                .is_some_and(|n| n.to_string_lossy().ends_with(".sako"))
+        })
         .collect();
     entries.sort();
 

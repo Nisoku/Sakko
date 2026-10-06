@@ -18,7 +18,24 @@ fn tokenize_json_produces_token_array() {
 
 #[test]
 fn tokenize_json_reports_lex_error() {
-    assert!(sakko_wasm::tokenize_json("\"").is_err());
+    let err = sakko_wasm::tokenize_json("\"").expect_err("should fail to lex");
+    let value: Value = serde_json::from_str(&err).expect("error is a JSON ErrorDto");
+    assert!(
+        value["message"]
+            .as_str()
+            .is_some_and(|m| m.contains("Unterminated string")),
+        "message should describe the failure"
+    );
+    assert!(value.get("line").is_some(), "ErrorDto has a line field");
+    assert!(value.get("col").is_some(), "ErrorDto has a col field");
+    assert!(
+        value.get("suggestion").is_some(),
+        "ErrorDto has a suggestion field"
+    );
+    assert!(
+        value.get("snippet").is_some(),
+        "ErrorDto has a snippet field"
+    );
 }
 
 #[test]
@@ -33,7 +50,12 @@ fn parse_json_produces_typed_ast() {
 
 #[test]
 fn parse_json_reports_document_error() {
-    assert!(sakko_wasm::parse_json("<unclosed {").is_err());
+    let err = sakko_wasm::parse_json("<unclosed {").expect_err("should fail to parse");
+    let value: Value = serde_json::from_str(&err).expect("error is a JSON ErrorDto");
+    assert_eq!(value["line"], 1);
+    assert!(value["col"].as_u64().is_some_and(|c| c > 0));
+    assert_eq!(value["suggestion"], "Check for missing closing brackets");
+    assert!(value["snippet"].as_str().is_some_and(|s| s.contains('^')));
 }
 
 #[test]

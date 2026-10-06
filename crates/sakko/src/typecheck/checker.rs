@@ -700,12 +700,18 @@ impl Checker {
                 else_block,
             } => {
                 self.infer(test, sc);
-                for block in then_block
-                    .iter()
-                    .chain(else_block.iter().flat_map(|b| b.iter()))
-                {
+                // Each branch gets its own scope so declarations do not leak
+                // into the other branch or past the `if`.
+                sc.push();
+                for block in then_block {
                     self.check_stmt(block, sc);
                 }
+                sc.pop();
+                sc.push();
+                for block in else_block.iter().flatten() {
+                    self.check_stmt(block, sc);
+                }
+                sc.pop();
             }
         }
     }

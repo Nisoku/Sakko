@@ -218,7 +218,7 @@ Compute derived values with `@derived`:
 ```
 
 Derived values are computed (immutable); reassigning one is an error
-(SKT010).
+(SKT012).
 
 ### Effects
 
@@ -265,7 +265,7 @@ Bind input elements with `@bind`:
 ```
 
 The bound signal syncs automatically with the input value. `@bind` must target
-a `@state` variable (SKT007 otherwise).
+a `@state` variable (SKT008 otherwise).
 
 ### Conditionals (`@if`)
 
@@ -364,7 +364,7 @@ maybe as string | null
 obj as { width: number, height: number }
 ```
 
-Impossible casts between disjoint concrete types are rejected (SKT013).
+Impossible casts between disjoint concrete types are rejected (SKT014).
 
 ### `js { }` escape hatch
 

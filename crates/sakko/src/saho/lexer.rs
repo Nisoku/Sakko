@@ -328,6 +328,35 @@ fn lex_interp_string(src: &str, i: &mut usize) -> Result<Option<Vec<TplPart>>, E
                 return Ok(if has_interp { Some(parts) } else { None });
             }
             b'{' => {
+                // A `{` only opens a substitution when its matching `}`
+                // closes inside *this* literal. Otherwise it is an ordinary
+                // character: `"{"` and `"a { b"` are valid JS, but treating
+                // them as interpolations makes `scan_substitution` step over
+                // the closing quote and report "unterminated string literal".
+                let mut lit_end = None;
+                let mut j = *i + 1;
+                while j < len {
+                    match bytes[j] {
+                        b'\\' => j += 2,
+                        b'"' => {
+                            lit_end = Some(j);
+                            break;
+                        }
+                        _ => j += 1,
+                    }
+                }
+                let closes_inside = match lit_end {
+                    Some(end) => {
+                        let mut probe = *i + 1;
+                        scan_substitution(src, &mut probe, 0).is_ok() && probe <= end
+                    }
+                    None => false,
+                };
+                if !closes_inside {
+                    *i += 1;
+                    continue;
+                }
+
                 has_interp = true;
                 parts.push(TplPart::Quasi(src[quasi_start..*i].to_owned()));
                 *i += 1;

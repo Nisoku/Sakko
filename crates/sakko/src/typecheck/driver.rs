@@ -6,7 +6,6 @@ use super::diag::Code;
 use super::report::Report;
 use super::types::Ty;
 use crate::error::SakkoError;
-use crate::saho as x;
 use crate::span::Span;
 use crate::syntax::ast::{
     AstNode, AtcodeBody, AtcodeDeclaration, BlockSnippet, ElementNode, ExprSnippet, InlineNode,
@@ -125,8 +124,11 @@ fn visit_node(node: &AstNode, sc: &mut Scopes, out: &mut Report) {
             });
             sc.push();
             if let Some(each) = each_item {
-                let item_ty = each_item_type(each, sc);
-                sc.declare(&each.item, item_ty, false);
+                // `check_modifiers` -> `check_each` reports this source's
+                // diagnostics, so discard the checker's findings here.
+                let (src_ty, c) = each_source_type(each, sc);
+                drop(c);
+                sc.declare(&each.item, each_item_type(&src_ty), false);
             }
             check_modifiers(modifiers, sc, out);
             children.iter().for_each(|c| visit_node(c, sc, out));
@@ -216,7 +218,9 @@ fn check_class_expr(snip: &ExprSnippet, sc: &mut Scopes, out: &mut Report) {
         Some(node) => {
             let t = c.infer(node, sc);
             let valid = match &t {
-                Ty::Str | Ty::Array(_) | Ty::Any | Ty::Unknown => true,
+                Ty::Str | Ty::Array(None) | Ty::Any | Ty::Unknown => true,
+                // Only arrays whose elements are known to be strings qualify.
+                Ty::Array(Some(elem)) => matches!(**elem, Ty::Str | Ty::Any | Ty::Unknown),
                 Ty::Union(members) => members
                     .iter()
                     .all(|m| matches!(m, Ty::Str | Ty::Null | Ty::Undefined)),
@@ -279,63 +283,56 @@ fn check_signal_target(name: &str, label: &str, sc: &Scopes, out: &mut Report) {
     }
 }
 
-fn each_item_type(each: &crate::syntax::ast::EachSpec, sc: &Scopes) -> Ty {
-    let src = each
-        .source
-        .parsed
-        .as_deref()
-        .map(|node| match &node.kind {
-            x::EKind::Ident(n) => n.as_str(),
-            _ => each.source.raw.as_ref(),
-        })
-        .unwrap_or(each.source.raw.as_ref());
-    match sc.lookup(src) {
-        Some(Resolved::Var(b)) => match b.ty {
-            Ty::Array(Some(inner)) => *inner,
-            Ty::Array(None) | Ty::Str | Ty::Unknown => Ty::Any,
-            // A union of arrays (e.g. a ternary returning either branch of
-            // `items.filter(...)`) keeps the common element type when every
-            // member agrees.
-            Ty::Union(members) => {
-                let mut elem = Ty::Any;
-                for m in &members {
-                    let e = match m {
-                        Ty::Array(Some(inner)) => (**inner).clone(),
-                        Ty::Array(None) | Ty::Str | Ty::Unknown | Ty::Any => Ty::Any,
-                        other => other.clone(),
-                    };
-                    elem = if elem == Ty::Any {
-                        e
-                    } else {
-                        Ty::union(elem, e)
-                    };
+/// Infer the type of an `@each` source expression. The source may be any
+/// expression (identifier, member access, call), so it is inferred rather
+/// than looked up as a bare name. `checker` drains any diagnostics the
+/// inference produced into `out`.
+fn each_source_type(each: &crate::syntax::ast::EachSpec, sc: &mut Scopes) -> (Ty, Checker) {
+    let mut c = Checker::new("@each".to_string(), None, &each.source.raw);
+    let ty = match each.source.parsed.as_deref() {
+        Some(node) => c.infer(node, sc),
+        // Unparseable source: the parse error is already reported elsewhere.
+        None => Ty::Any,
+    };
+    (ty, c)
+}
+
+/// Element type produced by iterating over `ty`.
+fn each_item_type(ty: &Ty) -> Ty {
+    match ty {
+        Ty::Array(Some(inner)) => (**inner).clone(),
+        Ty::Array(None) | Ty::Str | Ty::Unknown | Ty::Any => Ty::Any,
+        // A union of arrays (e.g. a ternary returning either branch of
+        // `items.filter(...)`) keeps the common element type when every
+        // member agrees.
+        Ty::Union(members) => {
+            let mut elem = Ty::Any;
+            for m in members {
+                // `null`/`undefined` are tolerated by the iterator check but
+                // carry no element, so they must not widen the item type.
+                if matches!(m, Ty::Null | Ty::Undefined) {
+                    continue;
                 }
-                elem
+                let e = each_item_type(m);
+                elem = if elem == Ty::Any {
+                    e
+                } else {
+                    Ty::union(elem, e)
+                };
             }
-            other => other,
-        },
-        _ => Ty::Any,
+            elem
+        }
+        other => other.clone(),
     }
 }
 
-fn check_each(each: &crate::syntax::ast::EachSpec, sc: &Scopes, out: &mut Report) {
-    let src = each
-        .source
-        .parsed
-        .as_deref()
-        .map(|node| match &node.kind {
-            x::EKind::Ident(n) => n.as_str(),
-            _ => each.source.raw.as_ref(),
-        })
-        .unwrap_or(each.source.raw.as_ref());
-    let ty = sc.lookup(src).map(|r| match r {
-        Resolved::Var(b) => b.ty,
-        Resolved::Ns(_) => Ty::Function,
-    });
+fn check_each(each: &crate::syntax::ast::EachSpec, sc: &mut Scopes, out: &mut Report) {
+    let (ty, mut c) = each_source_type(each, sc);
     let iterable = match &ty {
-        Some(Ty::Array(_) | Ty::Str | Ty::Any) => true,
-        // Every member of a union must be iterable on its own.
-        Some(Ty::Union(members)) => members.iter().all(|m| {
+        Ty::Array(_) | Ty::Str | Ty::Any | Ty::Null | Ty::Undefined => true,
+        // Every member of a union must be iterable on its own. `Unknown`
+        // (an unresolvable source) is rejected, not assumed iterable.
+        Ty::Union(members) => members.iter().all(|m| {
             matches!(
                 m,
                 Ty::Array(_) | Ty::Str | Ty::Any | Ty::Null | Ty::Undefined
@@ -344,15 +341,22 @@ fn check_each(each: &crate::syntax::ast::EachSpec, sc: &Scopes, out: &mut Report
         _ => false,
     };
     if !iterable {
-        let (code, message) = match ty {
-            Some(t) => (
-                Code::BadEachSource,
-                format!("cannot iterate over a value of type '{t}'"),
-            ),
-            None => (Code::UnknownIdent, format!("unknown identifier '{src}'")),
-        };
-        let mut c = Checker::new("@each".to_string(), None, &each.source.raw);
-        c.report(code, Span::whole(src), message);
-        c.drain_into(out);
+        // `Ty::Any` here means the source itself was unresolvable; `infer`
+        // already reported it, so do not add a second diagnostic.
+        if ty != Ty::Any {
+            let (code, message) = if ty == Ty::Unknown {
+                (
+                    Code::UnknownIdent,
+                    format!("unknown identifier '{}'", each.source.raw.trim()),
+                )
+            } else {
+                (
+                    Code::BadEachSource,
+                    format!("cannot iterate over a value of type '{ty}'"),
+                )
+            };
+            c.report(code, Span::whole(each.source.raw.trim()), message);
+        }
     }
+    c.drain_into(out);
 }

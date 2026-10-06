@@ -46,26 +46,28 @@ pub fn ns_member(ns: Ns, name: &str) -> Option<Member> {
     match ns {
         Ns::Math => match name {
             "PI" | "E" | "LN2" | "LN10" => prop(Number),
-            _ if MATH_FNS.contains(&name) => method(Function),
+            _ if MATH_FNS.contains(&name) => method(Number),
             _ => None,
         },
         Ns::Json => match name {
-            "parse" | "stringify" => method(Function),
+            "parse" => method(Unknown),
+            "stringify" => method(Str),
             _ => None,
         },
         Ns::NumberCtor => match name {
-            "parseFloat" | "parseInt" | "isNaN" | "isFinite" => method(Function),
+            "parseFloat" | "parseInt" => method(Number),
+            "isNaN" | "isFinite" => method(Bool),
             "MAX_SAFE_INTEGER" | "MIN_SAFE_INTEGER" | "EPSILON" | "MAX_VALUE" | "MIN_VALUE" => {
                 prop(Number)
             }
             _ => None,
         },
         Ns::StringCtor => match name {
-            "fromCharCode" | "fromCodePoint" | "raw" => method(Function),
+            "fromCharCode" | "fromCodePoint" | "raw" => method(Str),
             _ => None,
         },
         Ns::Console => match name {
-            "log" | "warn" | "error" | "info" | "debug" | "table" | "trace" => method(Function),
+            "log" | "warn" | "error" | "info" | "debug" | "table" | "trace" => method(Undefined),
             _ => None,
         },
     }

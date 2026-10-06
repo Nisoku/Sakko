@@ -1,0 +1,5 @@
+error[SKT001]: unknown identifier 'leaked'
+  --> @effect at line 2, col 3
+   |
+ 4 | console.log(leaked)
+   |             ^^^^^^

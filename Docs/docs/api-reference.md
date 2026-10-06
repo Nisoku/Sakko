@@ -67,8 +67,16 @@ assert!(report.diagnostics.is_empty());
 
 ### `check_ast(ast: &AstNode) -> Report`
 
-Typecheck an already-parsed AST node. The parser (`parse_sakko`) returns
-the AST; pass it here for the inference pass.
+Typecheck an already-parsed AST node. `parse_sakko` returns a `RootNode`, so
+wrap it as `AstNode::Root` before passing it here:
+
+```rust
+use sakko::{AstNode, check_ast, parse_sakko};
+
+let root = parse_sakko(r#"<counter { @state { count = 0 } }>"#)?;
+let report = check_ast(&AstNode::Root(root));
+assert!(report.diagnostics.is_empty());
+```
 
 ---
 
@@ -195,25 +203,18 @@ pub struct BlockSnippet<'a> {
 
 ```rust
 pub enum AtcodeDeclaration<'a> {
-    State(Vec<StateVar<'a>>),
-    Derived(Vec<DerivedVar<'a>>),
-    Effect(BlockSnippet<'a>),
-    If { test: ExprSnippet<'a>, then_block: BlockSnippet<'a>, else_block: Option<BlockSnippet<'a>> },
-    On { event: Cow<'a, str>, handler: BlockSnippet<'a> },
-    Bind(ExprSnippet<'a>),
-    Class(ExprSnippet<'a>),
-    Each(EachSpec<'a>),
+    State { declarations: Vec<StateVar<'a>>, line: u32, col: u32 },
+    Derived { declarations: Vec<DerivedVar<'a>>, line: u32, col: u32 },
+    Effect { body: BlockSnippet<'a>, line: u32, col: u32 },
 }
 
 pub struct StateVar<'a> {
     pub name: Cow<'a, str>,
-    pub ty: Option<TypeAst<'a>>,
     pub value: ExprSnippet<'a>,
 }
 
 pub struct DerivedVar<'a> {
     pub name: Cow<'a, str>,
-    pub ty: Option<TypeAst<'a>>,
     pub expr: ExprSnippet<'a>,
 }
 

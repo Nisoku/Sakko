@@ -4,12 +4,28 @@
 
 ### Fixed
 
+- Panic when lexing a string literal that ends in a trailing backslash. The
+  scan index ran past the end of the input, so the content slice was out of
+  bounds; an unterminated-literal diagnostic is reported instead.
+- Expression snippets no longer truncate interpolated strings. Reassembly
+  stopped at the first `}`, so `"x {a} y {b} z"` became `"x {a}`.
+- `@each` accepts any iterable source expression. Member access and calls
+  (`@each="i in o.list"`, `items.filter(...)`) were treated as a bare name
+  and reported as an unknown identifier.
+- `if` branches no longer leak declarations. Each branch is checked in its
+  own scope, so names declared inside are not visible after the `if` or in
+  the other branch.
+- `@class` rejects arrays whose element type is known to be non-string
+  (`@class={counts}` with `counts = [1, 2]`); arrays of strings and arrays
+  with an unknown element type stay valid.
+- `@each="row item in xs"` is rejected; the quoted binding form now requires a
+  single identifier, like the token form.
 - Stack overflow on deeply nested template literals. The nesting cap was only
   enforced while parsing, after the lexer had already recursed; the limit is
   now checked during lexing, so pathological input returns the
   "template literal nested too deeply" diagnostic instead of aborting.
-- `@derived` no longer silently swallows a malformed declaration. A bare
-  identifier or missing `=` is now reported as "Expected variable
+- `@derived` no longer silently swallows a malformed leading declaration. A
+  bare identifier or missing `=` is now reported as "Expected variable
   declaration", matching `@state`.
 - Method call return types now reach their call sites. The signature table
   was keyed on the receiver's span while lookups used the whole `obj.name`
@@ -21,6 +37,50 @@
 - Windows CI: typecheck snapshots no longer mismatch under a CRLF checkout.
   Added a `.gitattributes` normalizing the working tree to LF, and the
   snapshot comparison itself now ignores CRLF differences.
+- `@style` inside a parenthesized modifier list accepts the optional `=`, so
+  `button(@style="color: red")` parses like `button @style="color: red"`.
+- An unterminated substitution no longer hangs the parser. A `key="value"` pair
+  inside parentheses was classified as a class expression, which refuses to
+  start at a lone `=` and so consumed nothing. Known keys (`placeholder`,
+  `data-*`) now pair up, unknown keys report the existing diagnostic, and bare
+  flags such as `div(gap small)` are unaffected. A lone `=` versus `==` is
+  what now distinguishes the two cases.
+- `sakko-wasm`: `tokenize` and `check` now return document errors as a
+  serialized `ErrorDto` (message, line, column, suggestion, snippet) instead
+  of an opaque internal error type.
+- `sakko-wasm`: corrected the local `sakko` path dependency requirement from
+  `0.1.0` to `0.1.6` to match the workspace version.
+- `async` arrow nodes span the whole expression. The span only had its end
+  extended, so `g(async x => x)` reported an arrow covering `x => x` and
+  dropped the `async` keyword.
+- Expression snippet depth counters no longer go negative. `saturating_sub`
+  floors at `i32::MIN` rather than `0`, so an unmatched closer left a depth of
+  `-1`, the depth-0 stop guard never held again, and the scan ran to end of
+  input instead of stopping at the next delimiter.
+- Namespace methods report their real return types instead of `Function`:
+  `Math` and `Number.parseFloat`/`parseInt` return `number`, `JSON.parse`
+  returns `unknown`, `JSON.stringify`, `String.fromCharCode`/`fromCodePoint`/
+  `raw` return `string`, `Number.isNaN`/`isFinite` return `boolean`, and
+  `console` methods return `undefined`.
+- The item bound by `@each` no longer picks up `null`/`undefined` from a union
+  source. `flag ? items : null` bound `number | null` even though those members
+  carry no element.
+- A `{` inside a double-quoted JS string is only treated as the start of a
+  substitution when its matching `}` closes within the same literal. `"{"` and
+  `"a { b"` are valid JS and previously failed with "unterminated string
+  literal"; a trailing `{` such as `"a{b}c{"` is now kept as literal text.
+
+### Documentation
+
+- `api-reference.md`: corrected `AtcodeDeclaration` to its struct variants
+  (`State { declarations, line, col }`, `Derived { .. }`, `Effect { .. }`).
+  Removed the non-existent `ty: Option<TypeAst>` field from `StateVar` and
+  `DerivedVar`. `check_ast` now shows wrapping the parsed `RootNode` in
+  `AstNode::Root`.
+- `language-reference.md`: corrected three diagnostic codes to the ones the
+  checker actually emits — derived reassignment is `SKT012` (not `SKT010`),
+  an invalid `@bind` target is `SKT008` (not `SKT007`), and an impossible
+  cast is `SKT014` (not `SKT013`).
 
 ### Crate refactor
 

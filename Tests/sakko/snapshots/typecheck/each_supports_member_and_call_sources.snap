@@ -1,0 +1,5 @@
+error[SKT001]: unknown identifier 'nope'
+  --> @each
+   |
+ 1 | nope
+   | ^^^^

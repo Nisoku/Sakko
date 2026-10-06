@@ -314,3 +314,58 @@ fn strict_equality_ops_are_banned() {
         assert!(err.message.contains("'==' is already strict"));
     }
 }
+
+#[test]
+fn unclosed_brace_in_string_is_a_literal() {
+    // `{` only opens a substitution when its matching `}` closes inside the
+    // same literal. Treating `"{"` as an interpolation made the scanner step
+    // over the closing quote and fail with "unterminated string literal".
+    for src in [r#"x = "{" + y"#, r#"x = "a { b" + y"#, r#"x = "}" + y"#] {
+        let node =
+            saho::parse(src).unwrap_or_else(|e| panic!("{src:?} should parse: {}", e.message));
+        // The literal survives as a plain string rather than a template.
+        assert!(
+            format!("{node:?}").contains("Str("),
+            "expected a plain string for {src:?}, got {node:?}"
+        );
+    }
+
+    // A real substitution inside the literal still works, and a `{` after it
+    // stays literal text.
+    let node = saho::parse(r#"x = "a{b}c{" + y"#).unwrap();
+    let dbg = format!("{node:?}");
+    assert!(
+        dbg.contains(r#"Quasi("a")"#),
+        "missing leading quasi: {dbg}"
+    );
+    assert!(
+        dbg.contains(r#"Quasi("c{")"#),
+        "trailing brace not kept literal: {dbg}"
+    );
+    assert!(dbg.contains(r#"Ident("b")"#), "missing substitution: {dbg}");
+}
+
+#[test]
+fn async_arrow_span_covers_the_async_keyword() {
+    use sakko::saho::{Arg, EKind, Node};
+
+    fn arrow(n: &Node) -> Option<&Node> {
+        match &n.kind {
+            EKind::Arrow { .. } => Some(n),
+            EKind::Call { callee, args, .. } => arrow(callee).or_else(|| {
+                args.iter().find_map(|a| match a {
+                    Arg::Plain(x) => arrow(x),
+                    _ => None,
+                })
+            }),
+            _ => None,
+        }
+    }
+
+    for (src, want) in [("g(async x => x)", "async x => x"), ("g(x => x)", "x => x")] {
+        let node = saho::parse(src).unwrap_or_else(|e| panic!("{src:?}: {}", e.message));
+        let a = arrow(&node).expect("arrow node");
+        let got = &src[a.span.start as usize..a.span.end as usize];
+        assert_eq!(got, want, "arrow span for {src:?}");
+    }
+}

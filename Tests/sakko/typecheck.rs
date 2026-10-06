@@ -422,3 +422,115 @@ fn each_rejects_non_iterable_union_member() {
 }>"#,
     );
 }
+
+#[test]
+fn expr_snippet_reassembles_multiple_interpolations() {
+    // The whole `String`/`InterpStart`/`Expr`/`InterpEnd` run must be
+    // reassembled; stopping at the first `InterpEnd` truncated the source.
+    snap(
+        "expr_snippet_reassembles_multiple_interpolations",
+        r#"<app {
+  @state {
+    a = 1
+    b = 2
+  }
+  @derived {
+    label = "x {a} y {b} z"
+  }
+  text(dim): label
+}>"#,
+    );
+}
+
+#[test]
+fn if_branches_do_not_leak_declarations() {
+    snap(
+        "if_branches_do_not_leak_declarations",
+        r#"<app {
+  @effect {
+    if true {
+      const leaked = 1
+    }
+    console.log(leaked)
+  }
+  text: "A"
+}>"#,
+    );
+}
+
+#[test]
+fn each_supports_member_and_call_sources() {
+    snap(
+        "each_supports_member_and_call_sources",
+        r#"<app {
+  @state {
+    o = { list: [] }
+    items = []
+  }
+  li @each="i in o.list": "x"
+  li @each="i in items.filter(a => a > 1)": "x"
+  li @each="i in nope": "x"
+}>"#,
+    );
+}
+
+#[test]
+fn class_rejects_arrays_of_non_strings() {
+    snap(
+        "class_rejects_arrays_of_non_strings",
+        r#"<app {
+  @state {
+    names = ["a", "b"]
+    counts = [1, 2]
+  }
+  div @class={names}: "ok"
+  div @class={counts}: "bad"
+}>"#,
+    );
+}
+
+#[test]
+fn namespace_method_return_types() {
+    // `ns_member` used to hand every method `Function` as its *return* type,
+    // so `Math.round(...)` was itself typed `Function`. Each name now reports
+    // its real result: number, string, boolean, or undefined.
+    snap(
+        "namespace_method_return_types",
+        r#"<app {
+  @effect {
+    const a = Math.round(1.5)
+    const b = JSON.stringify({})
+    const c = Number.parseFloat("1.5")
+    const d = Number.isNaN(1)
+    const e = String.fromCharCode(65)
+    const f = console.log("x")
+    console.log(a + 1)
+    console.log(b.length)
+    console.log(c + 1)
+    console.log(d ? "y" : "n")
+    console.log(e.length)
+    console.log(f)
+  }
+  text: "A"
+}>"#,
+    );
+}
+
+#[test]
+fn each_item_type_ignores_null_union_members() {
+    // `check_each` tolerates `null`/`undefined` union members, but they carry
+    // no element, so they must not widen the bound item to `number | null`.
+    snap(
+        "each_item_type_ignores_null_union_members",
+        r#"<app {
+  @state {
+    xs = [1]
+    flag = true
+  }
+  @derived {
+    source = flag ? xs : null
+  }
+  li @each="i in source": [button @on:click { i() }: "x"]
+}>"#,
+    );
+}

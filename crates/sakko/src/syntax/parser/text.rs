@@ -36,6 +36,18 @@ impl<'a> Parser<'a> {
                 return Err(err);
             };
             let item = Cow::Owned(spec[..mid].to_string());
+            // The token form requires a single `Ident`, so the string form
+            // must not smuggle in a name like "row item".
+            if !is_valid_ident(&item) {
+                let err = self.error_at(
+                    format!(
+                        "Expected a single identifier before 'in' in @each expression, got '{}'",
+                        item
+                    ),
+                    self.last_token(),
+                );
+                return Err(err);
+            }
             let source = ExprSnippet::parse(Cow::Owned(spec[mid + 4..].to_string()));
             return Ok((item, source));
         }
@@ -157,11 +169,11 @@ impl<'a> Parser<'a> {
 
             match token.kind {
                 TokenKind::Lparen => paren_depth += 1,
-                TokenKind::Rparen => paren_depth = paren_depth.saturating_sub(1),
+                TokenKind::Rparen => paren_depth = paren_depth.saturating_sub(1).max(0),
                 TokenKind::Lbrace => brace_depth += 1,
-                TokenKind::Rbrace => brace_depth = brace_depth.saturating_sub(1),
+                TokenKind::Rbrace => brace_depth = brace_depth.saturating_sub(1).max(0),
                 TokenKind::Lbracket => bracket_depth += 1,
-                TokenKind::Rbracket => bracket_depth = bracket_depth.saturating_sub(1),
+                TokenKind::Rbracket => bracket_depth = bracket_depth.saturating_sub(1).max(0),
                 _ => {}
             }
 
@@ -212,9 +224,6 @@ impl<'a> Parser<'a> {
                 TokenKind::InterpEnd => out.push_str(&token.value),
                 _ => break,
             }
-            if token.kind == TokenKind::InterpEnd {
-                break;
-            }
         }
         out.push('"');
         Ok(Cow::Owned(out.to_string()))
@@ -230,6 +239,18 @@ fn matches_token_in_interp(kind: TokenKind) -> bool {
 
 fn is_js_word_char(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '_' || c == '$'
+}
+
+/// Whether `s` is a single identifier, e.g. the binding in `@each="item in xs"`.
+/// Rejects multi-word fragments such as `"row item"`.
+///
+/// This accepts JS identifier characters, which is a deliberate superset of the
+/// lexer's `Ident` rule (`is_ident_char` omits `$`), so names like `i$1` keep
+/// working in the quoted form. `-` is intentionally not accepted, since it
+/// would admit subtraction-looking names such as `a-b`.
+fn is_valid_ident(s: &str) -> bool {
+    let mut chars = s.chars();
+    chars.next().is_some_and(is_js_word_char) && chars.all(is_js_word_char)
 }
 
 /// Escape a string body for embedding inside a Saho `"..."` literal. Braces

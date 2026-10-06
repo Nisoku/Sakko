@@ -196,3 +196,17 @@ fn tokenizes_interpolation_inside_strings() {
     assert_eq!(&*expr.value, "hello");
     assert!(tokens.iter().any(|t| matches!(kind_of(t), K::InterpEnd)));
 }
+
+#[test]
+fn unterminated_string_with_trailing_backslash_does_not_panic() {
+    // A trailing backslash must not push the scan index past the end of the
+    // input; the literal is then reported as unterminated.
+    for src in ["\"abc\\", "x: \"abc\\", "text: \"abc\\\n y: 1"] {
+        let err = tokenize(src).expect_err("expected an unterminated string");
+        assert!(
+            err.message.contains("Unterminated string"),
+            "unexpected message for {src:?}: {}",
+            err.message
+        );
+    }
+}

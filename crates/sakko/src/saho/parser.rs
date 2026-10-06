@@ -404,6 +404,9 @@ where
                 *is_async = true;
             }
             let sp: SP = e.span();
+            // The combinator consumed `async` too, so the arrow node spans the
+            // whole `async x => ...`, not just the inner arrow.
+            n.span.start = sp.start as u32;
             n.span.end = sp.end as u32;
             n
         });
