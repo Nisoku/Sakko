@@ -310,6 +310,10 @@ fn lex_interp_string(src: &str, i: &mut usize) -> Result<Option<Vec<TplPart>>, E
     let mut parts = Vec::new();
     let mut quasi_start = *i;
     let mut has_interp = false;
+    // Cached on the first `{`: the position of the literal's closing quote.
+    // Every `{` inside the literal sees the same one, so it is found once
+    // instead of once per brace.
+    let mut lit_end: Option<usize> = None;
 
     loop {
         if *i >= len {
@@ -333,16 +337,17 @@ fn lex_interp_string(src: &str, i: &mut usize) -> Result<Option<Vec<TplPart>>, E
                 // character: `"{"` and `"a { b"` are valid JS, but treating
                 // them as interpolations makes `scan_substitution` step over
                 // the closing quote and report "unterminated string literal".
-                let mut lit_end = None;
-                let mut j = *i + 1;
-                while j < len {
-                    match bytes[j] {
-                        b'\\' => j += 2,
-                        b'"' => {
-                            lit_end = Some(j);
-                            break;
+                if lit_end.is_none() {
+                    let mut j = *i + 1;
+                    while j < len {
+                        match bytes[j] {
+                            b'\\' => j += 2,
+                            b'"' => {
+                                lit_end = Some(j);
+                                break;
+                            }
+                            _ => j += 1,
                         }
-                        _ => j += 1,
                     }
                 }
                 let closes_inside = match lit_end {

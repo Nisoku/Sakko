@@ -50,6 +50,10 @@
   of an opaque internal error type.
 - `sakko-wasm`: corrected the local `sakko` path dependency requirement from
   `0.1.0` to `0.1.6` to match the workspace version.
+- Tokenizing a line comment containing non-ASCII text (for example `//é`)
+  no longer panics on a UTF-8 boundary. The comment skip advanced one byte at
+  a time, landing inside a multibyte codepoint; it now advances whole
+  characters.
 - `async` arrow nodes span the whole expression. The span only had its end
   extended, so `g(async x => x)` reported an arrow covering `x => x` and
   dropped the `async` keyword.

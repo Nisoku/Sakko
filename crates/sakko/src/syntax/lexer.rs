@@ -81,8 +81,14 @@ pub fn tokenize(input: &str) -> Result<Vec<Token<'_>>> {
                 (None, _) => false,
             };
             if has_newline_before_lt || next_lt.is_none() {
+                // Advance a whole character each step: byte-wise `i += 1`
+                // lands inside a multibyte codepoint, and the slices below
+                // panic on a non-char-boundary.
                 while i < len && !input[i..].starts_with('\n') && !input[i..].starts_with('\r') {
-                    i += 1;
+                    let Some(c) = char_at(input, i) else {
+                        break;
+                    };
+                    i += c.len_utf8();
                 }
                 continue;
             }

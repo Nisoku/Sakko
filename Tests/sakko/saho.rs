@@ -369,3 +369,46 @@ fn async_arrow_span_covers_the_async_keyword() {
         assert_eq!(got, want, "arrow span for {src:?}");
     }
 }
+
+#[test]
+fn one_scan_finds_the_closing_quote_for_every_brace() {
+    use sakko::saho::{EKind, TplPart};
+
+    /// Parse `x = <string>` and hand back the string node itself.
+    fn lit(src: &str) -> sakko::saho::Node {
+        let n = saho::parse(src).unwrap_or_else(|e| panic!("{src:?}: {}", e.message));
+        match n.kind {
+            EKind::Assign { value, .. } => *value,
+            other => panic!("{src:?}: expected an assignment, got {other:?}"),
+        }
+    }
+
+    // The closing-quote search is cached on the first `{`, so it must agree
+    // with the per-brace search for later braces, including escaped quotes.
+    for (src, want_subs) in [
+        (r#"x = "{a}{b}""#, 2),
+        (r#"x = "x{a}y{b}z""#, 2),
+        (r#"x = "{a}\"{b}""#, 2), // escaped quote must not end the literal
+        // An escaped quote inside a substitution stays a plain string:
+        // `scan_substitution` reads `"` as a JS string, so this never closes.
+        (r#"x = "a{b\"}c""#, 0),
+    ] {
+        let v = lit(src);
+        let got = match &v.kind {
+            EKind::Template(parts) => parts
+                .iter()
+                .filter(|p| matches!(p, TplPart::Expr(_)))
+                .count(),
+            _ => 0,
+        };
+        assert_eq!(got, want_subs, "substitutions in {src:?}");
+    }
+    // A literal with no substitution at all must not pay for the scan.
+    for src in ["\"a \\\" b { c\"", "\"{\""] {
+        let n = saho::parse(src).unwrap_or_else(|e| panic!("{src:?}: {}", e.message));
+        assert!(
+            matches!(n.kind, EKind::Str(_)),
+            "expected a plain string for {src:?}, got {n:?}"
+        );
+    }
+}

@@ -210,3 +210,24 @@ fn unterminated_string_with_trailing_backslash_does_not_panic() {
         );
     }
 }
+
+#[test]
+fn comment_with_multibyte_text_does_not_panic() {
+    // The comment skip advanced one byte at a time, landing inside a
+    // multibyte codepoint and panicking on the next slice.
+    // Reaching the end without unwinding is the assertion; `//é<` is a
+    // legitimate error (the `<` disqualifies it from being a comment).
+    for src in ["//é", "//café", "//🎉", "//é<", "//emoji 🎉"] {
+        let _ = tokenize(src);
+    }
+
+    let tokens = tokenize("//café 🎉\ncard").unwrap();
+    let card = tokens
+        .iter()
+        .find(|t| t.kind == K::Ident)
+        .expect("card token");
+    assert_eq!(
+        (card.value.to_string().as_str(), card.line, card.col),
+        ("card", 2, 1)
+    );
+}
