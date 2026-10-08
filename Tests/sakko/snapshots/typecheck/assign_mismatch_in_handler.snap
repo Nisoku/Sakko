@@ -1,0 +1,5 @@
+error[SKT004]: cannot assign a value of type 'string' to 'number'
+  --> @on:click
+   |
+ 1 | count="many"
+   |       ^^^^^^

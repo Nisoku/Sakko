@@ -1,0 +1,10 @@
+error[SKT002]: type 'number' has no property or method 'bogusProp'
+  --> @effect at line 2, col 3
+   |
+ 2 | console.log(i.bogusProp)
+   |               ^^^^^^^^^
+error[SKT002]: type 'string[]' has no property or method 'bogusProp'
+  --> @effect at line 2, col 3
+   |
+ 4 | console.log(parts.bogusProp)
+   |                   ^^^^^^^^^

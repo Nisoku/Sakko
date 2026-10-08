@@ -1,0 +1,15 @@
+error[SKT001]: unknown identifier 'document'
+  --> text interpolation
+   |
+ 1 | document.title
+   | ^^^^^^^^
+error[SKT001]: unknown identifier 'window'
+  --> text interpolation
+   |
+ 1 | window.innerWidth
+   | ^^^^^^
+error[SKT001]: unknown identifier 'localStorage'
+  --> text interpolation
+   |
+ 1 | localStorage.getItem('k')
+   | ^^^^^^^^^^^^

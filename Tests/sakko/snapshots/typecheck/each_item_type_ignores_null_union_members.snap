@@ -1,0 +1,5 @@
+error[SKT003]: value of type 'number' is not callable
+  --> @on:click
+   |
+ 1 | i()
+   | ^
