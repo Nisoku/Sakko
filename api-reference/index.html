@@ -9,7 +9,7 @@
 
     <title>API Reference : Sakko</title>
     
-    <meta name="description" content="Public API for the Sakko parser and tokenizer">
+    <meta name="description" content="Public Rust API for the sakko crate">
     
 
     
@@ -183,208 +183,263 @@
             <div class="content-layout">
                 <div class="main-content">
                     <h1 id="sakko-api-reference">Sakko API Reference</h1>
+<p>All types below are re-exported from the <code>sakko</code> crate root.</p>
 <hr>
-<h2 id="parser">Parser</h2>
-<h3 id="parsesakkoinput-string-rootnode"><code>parseSakko(input: string): RootNode</code></h3>
-<p>Parse a Sakko source string into an AST.</p>
-<pre class="hljs"><code><span class="hljs-keyword">import</span> { parseSakko } <span class="hljs-keyword">from</span> <span class="hljs-string">&#x27;@nisoku/sakko&#x27;</span>;
+<h2 id="parsing">Parsing</h2>
+<h3 id="parse_sakkoinput-str-resultrootnode"><code>parse_sakko(input: &amp;str) -&gt; Result&lt;RootNode&gt;</code></h3>
+<p>Parse a <code>.sako</code> source string into a document AST.</p>
+<pre class="hljs"><code><span class="hljs-keyword">use</span> sakko::parse_sakko;
 
-<span class="hljs-keyword">const</span> ast = <span class="hljs-title function_">parseSakko</span>(<span class="hljs-string">&#x27;&lt;page { text: Hello }&gt;&#x27;</span>);
-<span class="hljs-comment">// Returns: { type: &quot;root&quot;, name: &quot;page&quot;, children: [...] }</span>
+<span class="hljs-keyword">let</span> <span class="hljs-variable">ast</span> = <span class="hljs-title function_ invoke__">parse_sakko</span>(<span class="hljs-string">r#&quot;&lt;counter { text: &quot;Hello&quot; }&gt;&quot;#</span>)?;
+<span class="hljs-comment">// ast: RootNode { name: &quot;counter&quot;, children: [...], ... }</span>
 </code></pre>
-<p><strong>Parameters:</strong></p>
+<p>The returned <code>RootNode</code> contains:</p>
 <ul>
-<li><code>input: string</code> - Sakko source code</li>
+<li><code>name: Cow&lt;str&gt;</code> - component tag name</li>
+<li><code>modifiers: Vec&lt;Modifier&gt;</code> - flag/pair modifiers on the root</li>
+<li><code>declarations: Vec&lt;AtcodeDeclaration&gt;</code> - reactive block declarations (<code>@state</code>, <code>@derived</code>, <code>@effect</code>, <code>@if</code>, <code>@each</code>, <code>@class</code>, <code>@on</code>, <code>@bind</code>)</li>
+<li><code>children: Vec&lt;AstNode&gt;</code> - child elements, inlines, and lists</li>
 </ul>
-<p><strong>Returns:</strong> <code>RootNode</code></p>
-<p><strong>Throws:</strong> <code>Error</code> with descriptive message on parse failure.</p>
 <hr>
-<h3 id="tokenizeinput-string-token"><code>tokenize(input: string): Token[]</code></h3>
-<p>Tokenize a Sakko source string into a token array.</p>
-<pre class="hljs"><code><span class="hljs-keyword">import</span> { tokenize } <span class="hljs-keyword">from</span> <span class="hljs-string">&#x27;@nisoku/sakko&#x27;</span>;
+<h3 id="tokenizeinput-str-resultvectoken"><code>tokenize(input: &amp;str) -&gt; Result&lt;Vec&lt;Token&gt;&gt;</code></h3>
+<p>Tokenize a source string. Useful for lexing-level tooling; the parser uses<br>
+this internally.</p>
+<pre class="hljs"><code><span class="hljs-keyword">use</span> sakko::tokenize;
 
-<span class="hljs-keyword">const</span> tokens = <span class="hljs-title function_">tokenize</span>(<span class="hljs-string">&#x27;button(accent): Save&#x27;</span>);
-<span class="hljs-comment">// Returns: [</span>
-<span class="hljs-comment">//   { type: &quot;IDENT&quot;, value: &quot;button&quot; },</span>
-<span class="hljs-comment">//   { type: &quot;LPAREN&quot;, value: &quot;(&quot; },</span>
-<span class="hljs-comment">//   { type: &quot;IDENT&quot;, value: &quot;accent&quot; },</span>
-<span class="hljs-comment">//   { type: &quot;RPAREN&quot;, value: &quot;)&quot; },</span>
-<span class="hljs-comment">//   { type: &quot;COLON&quot;, value: &quot;:&quot; },</span>
-<span class="hljs-comment">//   { type: &quot;IDENT&quot;, value: &quot;Save&quot; }</span>
-<span class="hljs-comment">// ]</span>
+<span class="hljs-keyword">let</span> <span class="hljs-variable">tokens</span> = <span class="hljs-title function_ invoke__">tokenize</span>(<span class="hljs-string">&quot;button(accent): Save&quot;</span>)?;
+<span class="hljs-comment">// Token { kind: TokenKind::Ident, value: &quot;button&quot;, ... }</span>
 </code></pre>
-<p><strong>Token Types:</strong></p>
-<ul>
-<li>Identifiers and symbols: <code>IDENT</code>, <code>LT</code>, <code>GT</code>, <code>LBRACE</code>, <code>RBRACE</code>, <code>LPAREN</code>, <code>RPAREN</code>, <code>LBRACKET</code>, <code>RBRACKET</code>, <code>COLON</code>, <code>SEMI</code>, <code>COMMA</code>, <code>DOT</code>, <code>PLUS</code>, <code>MINUS</code>, <code>STAR</code>, <code>AT</code>, <code>EQUALS</code></li>
-<li>String literals: <code>STRING</code></li>
-<li>Interpolation tokens: <code>INTERP_START</code>, <code>INTERP_END</code>, <code>EXPR</code></li>
-</ul>
-<p><strong>Throws:</strong> <code>Error</code> for unterminated strings or invalid syntax.</p>
+<p><strong>Token kinds:</strong> <code>Lt</code>, <code>Gt</code>, <code>Lbrace</code>, <code>Rbrace</code>, <code>Lparen</code>, <code>Rparen</code>,<br>
+<code>Lbracket</code>, <code>Rbracket</code>, <code>Colon</code>, <code>Semi</code>, <code>Comma</code>, <code>Ident</code>, <code>String</code>,<br>
+<code>BacktickString</code>, <code>At</code>, <code>Equals</code>, <code>InterpStart</code>, <code>InterpEnd</code>, <code>Expr</code>,<br>
+<code>Dot</code>, <code>Plus</code>, <code>Minus</code>, <code>Star</code>, <code>Pipe</code>, <code>Ampersand</code>, <code>Bang</code>, <code>Question</code>,<br>
+<code>Percent</code>.</p>
 <hr>
-<h2 id="types">Types</h2>
-<h3 id="ast-node-types">AST Node Types</h3>
-<pre class="hljs"><code><span class="hljs-keyword">type</span> <span class="hljs-title class_">RootNode</span> = {
-  <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;root&#x27;</span>;
-  <span class="hljs-attr">name</span>: <span class="hljs-built_in">string</span>;
-  <span class="hljs-attr">modifiers</span>?: <span class="hljs-title class_">Modifier</span>[];
-  <span class="hljs-attr">declarations</span>?: <span class="hljs-title class_">AtcodeDeclaration</span>[];
-  <span class="hljs-attr">children</span>: <span class="hljs-title class_">ASTNode</span>[];
-};
+<h2 id="typechecking">Typechecking</h2>
+<h3 id="check_sourcesrc-str-resultreport"><code>check_source(src: &amp;str) -&gt; Result&lt;Report&gt;</code></h3>
+<p>Parse and typecheck a <code>.sako</code> source string in one call. Returns a <code>Report</code><br>
+containing diagnostics and raw-JS escape records.</p>
+<pre class="hljs"><code><span class="hljs-keyword">use</span> sakko::check_source;
 
-<span class="hljs-keyword">type</span> <span class="hljs-title class_">ElementNode</span> = {
-  <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;element&#x27;</span>;
-  <span class="hljs-attr">name</span>: <span class="hljs-built_in">string</span>;
-  <span class="hljs-attr">modifiers</span>?: <span class="hljs-title class_">Modifier</span>[];
-  <span class="hljs-attr">children</span>: <span class="hljs-title class_">ASTNode</span>[];
-};
+<span class="hljs-keyword">let</span> <span class="hljs-variable">report</span> = <span class="hljs-title function_ invoke__">check_source</span>(<span class="hljs-string">r#&quot;&lt;counter { @state { count = 0 } }&gt;&quot;#</span>)?;
+<span class="hljs-built_in">assert!</span>(report.diagnostics.<span class="hljs-title function_ invoke__">is_empty</span>());
+</code></pre>
+<h3 id="check_astast-astnode-report"><code>check_ast(ast: &amp;AstNode) -&gt; Report</code></h3>
+<p>Typecheck an already-parsed AST node. <code>parse_sakko</code> returns a <code>RootNode</code>, so<br>
+wrap it as <code>AstNode::Root</code> before passing it here:</p>
+<pre class="hljs"><code><span class="hljs-keyword">use</span> sakko::{AstNode, check_ast, parse_sakko};
 
-<span class="hljs-keyword">type</span> <span class="hljs-title class_">InlineNode</span> = {
-  <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;inline&#x27;</span>;
-  <span class="hljs-attr">name</span>: <span class="hljs-built_in">string</span>;
-  <span class="hljs-attr">modifiers</span>?: <span class="hljs-title class_">Modifier</span>[];
-  <span class="hljs-attr">value</span>: <span class="hljs-built_in">string</span> | <span class="hljs-title class_">InterpolatedText</span>;
-};
-
-<span class="hljs-keyword">type</span> <span class="hljs-title class_">ListNode</span> = {
-  <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;list&#x27;</span>;
-  <span class="hljs-attr">items</span>: <span class="hljs-title class_">ASTNode</span>[];
-};
-
-<span class="hljs-keyword">type</span> <span class="hljs-title class_">ASTNode</span> = <span class="hljs-title class_">RootNode</span> | <span class="hljs-title class_">ElementNode</span> | <span class="hljs-title class_">InlineNode</span> | <span class="hljs-title class_">ListNode</span>;
-</code></pre>
-<h3 id="modifier-types">Modifier Types</h3>
-<pre class="hljs"><code><span class="hljs-keyword">type</span> <span class="hljs-title class_">Modifier</span> =
-  | { <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;flag&#x27;</span>; <span class="hljs-attr">value</span>: <span class="hljs-built_in">string</span> }
-  | { <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;pair&#x27;</span>; <span class="hljs-attr">key</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">value</span>: <span class="hljs-built_in">string</span> }
-  | { <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;event&#x27;</span>; <span class="hljs-attr">event</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">handler</span>: <span class="hljs-built_in">string</span> }
-  | { <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;atcode&#x27;</span>; <span class="hljs-attr">name</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">body</span>: <span class="hljs-built_in">string</span> };
-</code></pre>
-<h3 id="atcode-declaration-types">Atcode Declaration Types</h3>
-<pre class="hljs"><code><span class="hljs-keyword">type</span> <span class="hljs-title class_">AtcodeDeclaration</span> =
-  | {
-      <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;state&#x27;</span>;
-      <span class="hljs-attr">declarations</span>: <span class="hljs-title class_">Array</span>&lt;{ <span class="hljs-attr">name</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">value</span>: <span class="hljs-built_in">string</span> }&gt;;
-      <span class="hljs-attr">line</span>: <span class="hljs-built_in">number</span>;
-      <span class="hljs-attr">col</span>: <span class="hljs-built_in">number</span>;
-    }
-  | {
-      <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;effect&#x27;</span>;
-      <span class="hljs-attr">body</span>: <span class="hljs-built_in">string</span>;
-      <span class="hljs-attr">line</span>: <span class="hljs-built_in">number</span>;
-      <span class="hljs-attr">col</span>: <span class="hljs-built_in">number</span>;
-    }
-  | {
-      <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;derived&#x27;</span>;
-      <span class="hljs-attr">declarations</span>: <span class="hljs-title class_">Array</span>&lt;{ <span class="hljs-attr">name</span>: <span class="hljs-built_in">string</span>; <span class="hljs-attr">expr</span>: <span class="hljs-built_in">string</span> }&gt;;
-      <span class="hljs-attr">line</span>: <span class="hljs-built_in">number</span>;
-      <span class="hljs-attr">col</span>: <span class="hljs-built_in">number</span>;
-    };
-</code></pre>
-<h3 id="interpolated-text">Interpolated Text</h3>
-<pre class="hljs"><code><span class="hljs-keyword">type</span> <span class="hljs-title class_">InterpolatedText</span> = {
-  <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;interpolated&#x27;</span>;
-  <span class="hljs-attr">parts</span>: <span class="hljs-title class_">Array</span>&lt;
-    | { <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;text&#x27;</span>; <span class="hljs-attr">value</span>: <span class="hljs-built_in">string</span> }
-    | { <span class="hljs-attr">type</span>: <span class="hljs-string">&#x27;expr&#x27;</span>; <span class="hljs-attr">value</span>: <span class="hljs-built_in">string</span> }
-  &gt;;
-};
-</code></pre>
-<h3 id="token-type">Token Type</h3>
-<pre class="hljs"><code><span class="hljs-keyword">type</span> <span class="hljs-title class_">Token</span> = {
-  <span class="hljs-attr">type</span>: <span class="hljs-built_in">string</span>;
-  <span class="hljs-attr">value</span>: <span class="hljs-built_in">string</span>;
-  <span class="hljs-attr">line</span>: <span class="hljs-built_in">number</span>;
-  <span class="hljs-attr">col</span>: <span class="hljs-built_in">number</span>;
-};
+<span class="hljs-keyword">let</span> <span class="hljs-variable">root</span> = <span class="hljs-title function_ invoke__">parse_sakko</span>(<span class="hljs-string">r#&quot;&lt;counter { @state { count = 0 } }&gt;&quot;#</span>)?;
+<span class="hljs-keyword">let</span> <span class="hljs-variable">report</span> = <span class="hljs-title function_ invoke__">check_ast</span>(&amp;AstNode::<span class="hljs-title function_ invoke__">Root</span>(root));
+<span class="hljs-built_in">assert!</span>(report.diagnostics.<span class="hljs-title function_ invoke__">is_empty</span>());
 </code></pre>
 <hr>
-<h2 id="compiler">Compiler</h2>
-<h3 id="compilecomponentroot-rootnode-options-compileoptions-string"><code>compileComponent(root: RootNode, options?: CompileOptions): string</code></h3>
-<p>Compile a Sakko AST to JavaScript with Sairin signals.</p>
-<pre class="hljs"><code><span class="hljs-keyword">import</span> { parseSakko, compileComponent } <span class="hljs-keyword">from</span> <span class="hljs-string">&#x27;@nisoku/sakko&#x27;</span>;
-
-<span class="hljs-keyword">const</span> ast = <span class="hljs-title function_">parseSakko</span>(<span class="hljs-string">&#x27;&lt;counter { @state { count = 0 } }&gt;&#x27;</span>);
-<span class="hljs-keyword">const</span> js = <span class="hljs-title function_">compileComponent</span>(ast);
-<span class="hljs-comment">// Returns: const { signal } = sairin; ... (global mode by default)</span>
+<h2 id="report-types">Report types</h2>
+<h3 id="report"><code>Report</code></h3>
+<pre class="hljs"><code><span class="hljs-keyword">pub</span> <span class="hljs-keyword">struct</span> <span class="hljs-title class_">Report</span> {
+    <span class="hljs-keyword">pub</span> diagnostics: <span class="hljs-type">Vec</span>&lt;Diagnostic&gt;,
+    <span class="hljs-keyword">pub</span> js_escapes: <span class="hljs-type">Vec</span>&lt;JsEscape&gt;,
+}
 </code></pre>
-<h4 id="compileoptions">CompileOptions</h4>
+<h3 id="diagnostic"><code>Diagnostic</code></h3>
+<pre class="hljs"><code><span class="hljs-keyword">pub</span> <span class="hljs-keyword">struct</span> <span class="hljs-title class_">Diagnostic</span> {
+    <span class="hljs-keyword">pub</span> severity: Severity,   <span class="hljs-comment">// currently always Error</span>
+    <span class="hljs-keyword">pub</span> code: Code,           <span class="hljs-comment">// stable code: SKT001..SKT015</span>
+    <span class="hljs-keyword">pub</span> span: Span,
+    <span class="hljs-keyword">pub</span> snippet: <span class="hljs-type">String</span>,
+    <span class="hljs-keyword">pub</span> caret: <span class="hljs-type">String</span>,
+    <span class="hljs-keyword">pub</span> message: <span class="hljs-type">String</span>,
+    <span class="hljs-keyword">pub</span> suggestion: <span class="hljs-type">Option</span>&lt;<span class="hljs-type">String</span>&gt;,
+}
+
+<span class="hljs-keyword">impl</span> <span class="hljs-title class_">Diagnostic</span> {
+    <span class="hljs-keyword">pub</span> <span class="hljs-keyword">fn</span> <span class="hljs-title function_">render</span>(&amp;<span class="hljs-keyword">self</span>) <span class="hljs-punctuation">-&gt;</span> <span class="hljs-type">String</span> { <span class="hljs-comment">/* formatted with source + caret */</span> }
+}
+</code></pre>
+<p><strong>Diagnostic codes:</strong></p>
 <div class="table-wrapper"><table>
 <thead>
 <tr>
-<th>Option</th>
-<th>Type</th>
-<th>Default</th>
+<th>Code</th>
+<th>Name</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>id</code></td>
-<td><code>string</code></td>
-<td>auto-generated</td>
-<td>Custom component ID</td>
+<td>SKT001</td>
+<td><code>UnknownIdent</code></td>
+<td>Unknown identifier</td>
 </tr>
 <tr>
-<td><code>sairinImport</code></td>
-<td><code>'global' | 'esm' | 'cjs'</code></td>
-<td><code>'global'</code></td>
-<td>How to import Sairin</td>
+<td>SKT002</td>
+<td><code>UnknownProp</code></td>
+<td>Unknown property</td>
 </tr>
 <tr>
-<td><code>sairinGlobal</code></td>
-<td><code>string</code></td>
-<td><code>'sairin'</code></td>
-<td>Global name for <code>global</code> mode</td>
+<td>SKT003</td>
+<td><code>NotCallable</code></td>
+<td>Value is not callable</td>
 </tr>
 <tr>
-<td><code>sairinModule</code></td>
-<td><code>string</code></td>
-<td><code>'sairin'</code></td>
-<td>Module path for <code>esm</code>/<code>cjs</code> modes</td>
+<td>SKT004</td>
+<td><code>AssignMismatch</code></td>
+<td>Type mismatch in assignment</td>
+</tr>
+<tr>
+<td>SKT005</td>
+<td><code>BadOperand</code></td>
+<td>Invalid operand for operator</td>
+</tr>
+<tr>
+<td>SKT006</td>
+<td><code>BadUnaryOperand</code></td>
+<td>Invalid operand for unary operator</td>
+</tr>
+<tr>
+<td>SKT007</td>
+<td><code>DuplicateDecl</code></td>
+<td>Duplicate state declaration</td>
+</tr>
+<tr>
+<td>SKT008</td>
+<td><code>BadBindTarget</code></td>
+<td><code>@bind</code> must target a state variable</td>
+</tr>
+<tr>
+<td>SKT009</td>
+<td><code>BadEachSource</code></td>
+<td>Malformed <code>@each</code> source</td>
+</tr>
+<tr>
+<td>SKT010</td>
+<td><code>RenderedFunction</code></td>
+<td>Function used where a value is rendered</td>
+</tr>
+<tr>
+<td>SKT011</td>
+<td><code>SnippetParse</code></td>
+<td>Saho parse error inside a snippet</td>
+</tr>
+<tr>
+<td>SKT012</td>
+<td><code>ConstReassign</code></td>
+<td>Cannot reassign <code>@derived</code> or constant</td>
+</tr>
+<tr>
+<td>SKT013</td>
+<td><code>UnknownUse</code></td>
+<td>Use of a value the checker cannot resolve</td>
+</tr>
+<tr>
+<td>SKT014</td>
+<td><code>ImpossibleCast</code></td>
+<td><code>as</code> cast between disjoint concrete types</td>
+</tr>
+<tr>
+<td>SKT015</td>
+<td><code>BadClassType</code></td>
+<td><code>@class</code> expression must yield a string or array of strings</td>
 </tr>
 </tbody>
 </table>
-</div><p><strong>Sairin Import Modes:</strong></p>
-<ul>
-<li><code>'global'</code>: References <code>window.sairin</code> (requires <code>&lt;script src=&quot;sairin.js&quot;&gt;</code>)</li>
-<li><code>'esm'</code>: Generates <code>import { signal } from 'sairin'</code> (use with bundler)</li>
-<li><code>'cjs'</code>: Generates <code>const { signal } = require('sairin')</code> (Node.js only)</li>
-</ul>
+</div><h3 id="jsescape"><code>JsEscape</code></h3>
+<p>One recorded <code>js { ... }</code> occurrence. Bodies are never typechecked.</p>
+<pre class="hljs"><code><span class="hljs-keyword">pub</span> <span class="hljs-keyword">struct</span> <span class="hljs-title class_">JsEscape</span> {
+    <span class="hljs-keyword">pub</span> kind_label: <span class="hljs-type">String</span>,
+    <span class="hljs-keyword">pub</span> location: <span class="hljs-type">Option</span>&lt;(<span class="hljs-type">u32</span>, <span class="hljs-type">u32</span>)&gt;,
+    <span class="hljs-keyword">pub</span> span: Span,
+    <span class="hljs-keyword">pub</span> body: <span class="hljs-type">String</span>,
+}
+</code></pre>
 <hr>
-<h2 id="runtime">Runtime</h2>
-<h3 id="registersakkocomponentast-rootnode-options-registeroptions-promisevoid"><code>registerSakkoComponent(ast: RootNode, options?: RegisterOptions): Promise&lt;void&gt;</code></h3>
-<p>Register a component as a custom element. <strong>Async</strong> in browser environments.</p>
-<pre class="hljs"><code><span class="hljs-keyword">import</span> { parseSakko, registerSakkoComponent } <span class="hljs-keyword">from</span> <span class="hljs-string">&#x27;@nisoku/sakko&#x27;</span>;
+<h2 id="ast-node-types">AST node types</h2>
+<h3 id="rootnode-elementnode-inlinenode-listnode"><code>RootNode</code> / <code>ElementNode</code> / <code>InlineNode</code> / <code>ListNode</code></h3>
+<pre class="hljs"><code><span class="hljs-keyword">pub</span> <span class="hljs-keyword">struct</span> <span class="hljs-title class_">RootNode</span>&lt;<span class="hljs-symbol">&#x27;a</span>&gt; {
+    <span class="hljs-keyword">pub</span> name: Cow&lt;<span class="hljs-symbol">&#x27;a</span>, <span class="hljs-type">str</span>&gt;,
+    <span class="hljs-keyword">pub</span> modifiers: <span class="hljs-type">Vec</span>&lt;Modifier&lt;<span class="hljs-symbol">&#x27;a</span>&gt;&gt;,
+    <span class="hljs-keyword">pub</span> declarations: <span class="hljs-type">Vec</span>&lt;AtcodeDeclaration&lt;<span class="hljs-symbol">&#x27;a</span>&gt;&gt;,
+    <span class="hljs-keyword">pub</span> children: <span class="hljs-type">Vec</span>&lt;AstNode&lt;<span class="hljs-symbol">&#x27;a</span>&gt;&gt;,
+}
 
-<span class="hljs-keyword">const</span> ast = <span class="hljs-title function_">parseSakko</span>(<span class="hljs-string">&#x27;&lt;my-counter { @state { count = 0 } }&gt;&#x27;</span>);
-<span class="hljs-keyword">await</span> <span class="hljs-title function_">registerSakkoComponent</span>(ast);
-<span class="hljs-comment">// Now &lt;sakko-my-counter&gt; is available as a web component</span>
-</code></pre>
-<h4 id="registeroptions">RegisterOptions</h4>
-<p>Same as <code>CompileOptions</code>: <code>sairinImport</code>, <code>sairinGlobal</code>, <code>sairinModule</code>.</p>
-<p><strong>Note:</strong> In browsers, only <code>'global'</code> mode is supported. For <code>'esm'</code> or <code>'cjs'</code>, call <code>compileComponent</code> separately and use a bundler.</p>
-<h3 id="getcomponentname-string-readonlyregisteredcomponent-undefined"><code>getComponent(name: string): Readonly&lt;RegisteredComponent&gt; | undefined</code></h3>
-<p>Get a registered component by name (case-insensitive).</p>
-<pre class="hljs"><code><span class="hljs-keyword">import</span> { getComponent } <span class="hljs-keyword">from</span> <span class="hljs-string">&#x27;@nisoku/sakko&#x27;</span>;
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">struct</span> <span class="hljs-title class_">ElementNode</span>&lt;<span class="hljs-symbol">&#x27;a</span>&gt; {
+    <span class="hljs-keyword">pub</span> name: Cow&lt;<span class="hljs-symbol">&#x27;a</span>, <span class="hljs-type">str</span>&gt;,
+    <span class="hljs-keyword">pub</span> modifiers: <span class="hljs-type">Vec</span>&lt;Modifier&lt;<span class="hljs-symbol">&#x27;a</span>&gt;&gt;,
+    <span class="hljs-keyword">pub</span> children: <span class="hljs-type">Vec</span>&lt;AstNode&lt;<span class="hljs-symbol">&#x27;a</span>&gt;&gt;,
+}
 
-<span class="hljs-keyword">const</span> comp = <span class="hljs-title function_">getComponent</span>(<span class="hljs-string">&#x27;my-counter&#x27;</span>);
-<span class="hljs-keyword">if</span> (comp) {
-  <span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(comp.<span class="hljs-property">source</span>); <span class="hljs-comment">// The compiled JS source</span>
-  <span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(comp.<span class="hljs-property">factory</span>); <span class="hljs-comment">// The factory function</span>
-  <span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(comp.<span class="hljs-property">dispose</span>); <span class="hljs-comment">// Cleanup function for instances</span>
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">struct</span> <span class="hljs-title class_">InlineNode</span>&lt;<span class="hljs-symbol">&#x27;a</span>&gt; {
+    <span class="hljs-keyword">pub</span> name: Cow&lt;<span class="hljs-symbol">&#x27;a</span>, <span class="hljs-type">str</span>&gt;,
+    <span class="hljs-keyword">pub</span> modifiers: <span class="hljs-type">Vec</span>&lt;Modifier&lt;<span class="hljs-symbol">&#x27;a</span>&gt;&gt;,
+    <span class="hljs-keyword">pub</span> value: InlineValue&lt;<span class="hljs-symbol">&#x27;a</span>&gt;,
+}
+
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">struct</span> <span class="hljs-title class_">ListNode</span>&lt;<span class="hljs-symbol">&#x27;a</span>&gt; {
+    <span class="hljs-keyword">pub</span> items: <span class="hljs-type">Vec</span>&lt;AstNode&lt;<span class="hljs-symbol">&#x27;a</span>&gt;&gt;,
+}
+
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">enum</span> <span class="hljs-title class_">AstNode</span>&lt;<span class="hljs-symbol">&#x27;a</span>&gt; {
+    <span class="hljs-title function_ invoke__">Root</span>(RootNode&lt;<span class="hljs-symbol">&#x27;a</span>&gt;),
+    <span class="hljs-title function_ invoke__">Element</span>(ElementNode&lt;<span class="hljs-symbol">&#x27;a</span>&gt;),
+    <span class="hljs-title function_ invoke__">Inline</span>(InlineNode&lt;<span class="hljs-symbol">&#x27;a</span>&gt;),
+    <span class="hljs-title function_ invoke__">List</span>(ListNode&lt;<span class="hljs-symbol">&#x27;a</span>&gt;),
 }
 </code></pre>
-<h3 id="getallcomponents-readonlymapstring-readonlyregisteredcomponent"><code>getAllComponents(): ReadonlyMap&lt;string, Readonly&lt;RegisteredComponent&gt;&gt;</code></h3>
-<p>Get all registered components.</p>
-<h3 id="getcomponentsourcename-string-string-undefined"><code>getComponentSource(name: string): string | undefined</code></h3>
-<p>Get the compiled source for a component by name.</p>
-<h3 id="registeredcomponent">RegisteredComponent</h3>
-<pre class="hljs"><code><span class="hljs-keyword">interface</span> <span class="hljs-title class_">RegisteredComponent</span> {
-  <span class="hljs-keyword">readonly</span> <span class="hljs-attr">name</span>: <span class="hljs-built_in">string</span>;              <span class="hljs-comment">// Component name (lowercase)</span>
-  <span class="hljs-keyword">readonly</span> <span class="hljs-attr">factory</span>: <span class="hljs-function">(<span class="hljs-params"><span class="hljs-attr">id</span>?: <span class="hljs-built_in">string</span></span>) =&gt;</span> <span class="hljs-title class_">HTMLElement</span>;  <span class="hljs-comment">// Instance factory</span>
-  <span class="hljs-keyword">readonly</span> <span class="hljs-attr">dispose</span>: <span class="hljs-function">(<span class="hljs-params"><span class="hljs-attr">id</span>: <span class="hljs-built_in">string</span></span>) =&gt;</span> <span class="hljs-built_in">void</span>;  <span class="hljs-comment">// Cleanup function</span>
-  <span class="hljs-keyword">readonly</span> <span class="hljs-attr">source</span>: <span class="hljs-built_in">string</span>;            <span class="hljs-comment">// Compiled JS source</span>
+<h3 id="reactive-snippets">Reactive snippets</h3>
+<p>Every reactive payload is parsed once at document-parse time into a typed<br>
+Saho node; the typechecker walks the pre-built tree (no re-parse).</p>
+<pre class="hljs"><code><span class="hljs-keyword">pub</span> <span class="hljs-keyword">struct</span> <span class="hljs-title class_">ExprSnippet</span>&lt;<span class="hljs-symbol">&#x27;a</span>&gt; {
+    <span class="hljs-keyword">pub</span> raw: Cow&lt;<span class="hljs-symbol">&#x27;a</span>, <span class="hljs-type">str</span>&gt;,
+    <span class="hljs-keyword">pub</span> parsed: <span class="hljs-type">Option</span>&lt;<span class="hljs-type">Box</span>&lt;saho::Node&gt;&gt;,
+    <span class="hljs-keyword">pub</span> errors: <span class="hljs-type">Vec</span>&lt;SnippetDiag&gt;,
 }
+
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">struct</span> <span class="hljs-title class_">BlockSnippet</span>&lt;<span class="hljs-symbol">&#x27;a</span>&gt; {
+    <span class="hljs-keyword">pub</span> raw: Cow&lt;<span class="hljs-symbol">&#x27;a</span>, <span class="hljs-type">str</span>&gt;,
+    <span class="hljs-keyword">pub</span> parsed: <span class="hljs-type">Option</span>&lt;<span class="hljs-type">Vec</span>&lt;saho::Stmt&gt;&gt;,
+    <span class="hljs-keyword">pub</span> errors: <span class="hljs-type">Vec</span>&lt;SnippetDiag&gt;,
+}
+</code></pre>
+<h3 id="declaration-types">Declaration types</h3>
+<pre class="hljs"><code><span class="hljs-keyword">pub</span> <span class="hljs-keyword">enum</span> <span class="hljs-title class_">AtcodeDeclaration</span>&lt;<span class="hljs-symbol">&#x27;a</span>&gt; {
+    State { declarations: <span class="hljs-type">Vec</span>&lt;StateVar&lt;<span class="hljs-symbol">&#x27;a</span>&gt;&gt;, line: <span class="hljs-type">u32</span>, col: <span class="hljs-type">u32</span> },
+    Derived { declarations: <span class="hljs-type">Vec</span>&lt;DerivedVar&lt;<span class="hljs-symbol">&#x27;a</span>&gt;&gt;, line: <span class="hljs-type">u32</span>, col: <span class="hljs-type">u32</span> },
+    Effect { body: BlockSnippet&lt;<span class="hljs-symbol">&#x27;a</span>&gt;, line: <span class="hljs-type">u32</span>, col: <span class="hljs-type">u32</span> },
+}
+
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">struct</span> <span class="hljs-title class_">StateVar</span>&lt;<span class="hljs-symbol">&#x27;a</span>&gt; {
+    <span class="hljs-keyword">pub</span> name: Cow&lt;<span class="hljs-symbol">&#x27;a</span>, <span class="hljs-type">str</span>&gt;,
+    <span class="hljs-keyword">pub</span> value: ExprSnippet&lt;<span class="hljs-symbol">&#x27;a</span>&gt;,
+}
+
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">struct</span> <span class="hljs-title class_">DerivedVar</span>&lt;<span class="hljs-symbol">&#x27;a</span>&gt; {
+    <span class="hljs-keyword">pub</span> name: Cow&lt;<span class="hljs-symbol">&#x27;a</span>, <span class="hljs-type">str</span>&gt;,
+    <span class="hljs-keyword">pub</span> expr: ExprSnippet&lt;<span class="hljs-symbol">&#x27;a</span>&gt;,
+}
+
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">struct</span> <span class="hljs-title class_">EachSpec</span>&lt;<span class="hljs-symbol">&#x27;a</span>&gt; {
+    <span class="hljs-keyword">pub</span> item: Cow&lt;<span class="hljs-symbol">&#x27;a</span>, <span class="hljs-type">str</span>&gt;,
+    <span class="hljs-keyword">pub</span> source: ExprSnippet&lt;<span class="hljs-symbol">&#x27;a</span>&gt;,
+}
+</code></pre>
+<hr>
+<h2 id="re-exports">Re-exports</h2>
+<p>From the crate root:</p>
+<pre class="hljs"><code><span class="hljs-comment">// Parsing</span>
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">use</span> syntax::ast::{AstNode, RootNode, ElementNode, InlineNode, ListNode, Modifier, ...};
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">use</span> syntax::lexer::tokenize;
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">use</span> syntax::parser::parse_sakko;
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">use</span> syntax::token::{Token, TokenKind};
+
+<span class="hljs-comment">// Typechecking</span>
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">use</span> typecheck::{check_source, check_ast, Diagnostic, JsEscape, Report};
+
+<span class="hljs-comment">// Sahō (expression language)</span>
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">mod</span> saho;
+
+<span class="hljs-comment">// Shared types</span>
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">use</span> span::{Span, LineIndex};
+<span class="hljs-keyword">pub</span> <span class="hljs-keyword">use</span> error::{<span class="hljs-type">Result</span>, SakkoError};
 </code></pre>
 
 
@@ -416,79 +471,63 @@
     <ul class="toc-list">
       
         <li class="toc-item toc-level-2">
-          <a href="#parser" class="toc-link">Parser</a>
+          <a href="#parsing" class="toc-link">Parsing</a>
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#parsesakkoinput-string-rootnode" class="toc-link">parseSakko(input: string): RootNode</a>
+          <a href="#parse_sakkoinput-str-resultrootnode" class="toc-link">parse_sakko(input: &amp;str) -&gt; Result&lt;RootNode&gt;</a>
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#tokenizeinput-string-token" class="toc-link">tokenize(input: string): Token[]</a>
+          <a href="#tokenizeinput-str-resultvectoken" class="toc-link">tokenize(input: &amp;str) -&gt; Result&lt;Vec&lt;Token&gt;&gt;</a>
         </li>
       
         <li class="toc-item toc-level-2">
-          <a href="#types" class="toc-link">Types</a>
+          <a href="#typechecking" class="toc-link">Typechecking</a>
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#ast-node-types" class="toc-link">AST Node Types</a>
+          <a href="#check_sourcesrc-str-resultreport" class="toc-link">check_source(src: &amp;str) -&gt; Result&lt;Report&gt;</a>
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#modifier-types" class="toc-link">Modifier Types</a>
-        </li>
-      
-        <li class="toc-item toc-level-3">
-          <a href="#atcode-declaration-types" class="toc-link">Atcode Declaration Types</a>
-        </li>
-      
-        <li class="toc-item toc-level-3">
-          <a href="#interpolated-text" class="toc-link">Interpolated Text</a>
-        </li>
-      
-        <li class="toc-item toc-level-3">
-          <a href="#token-type" class="toc-link">Token Type</a>
+          <a href="#check_astast-astnode-report" class="toc-link">check_ast(ast: &amp;AstNode) -&gt; Report</a>
         </li>
       
         <li class="toc-item toc-level-2">
-          <a href="#compiler" class="toc-link">Compiler</a>
+          <a href="#report-types" class="toc-link">Report types</a>
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#compilecomponentroot-rootnode-options-compileoptions-string" class="toc-link">compileComponent(root: RootNode, options?: CompileOptions): string</a>
+          <a href="#report" class="toc-link">Report</a>
         </li>
       
-        <li class="toc-item toc-level-4">
-          <a href="#compileoptions" class="toc-link">CompileOptions</a>
+        <li class="toc-item toc-level-3">
+          <a href="#diagnostic" class="toc-link">Diagnostic</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#jsescape" class="toc-link">JsEscape</a>
         </li>
       
         <li class="toc-item toc-level-2">
-          <a href="#runtime" class="toc-link">Runtime</a>
+          <a href="#ast-node-types" class="toc-link">AST node types</a>
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#registersakkocomponentast-rootnode-options-registeroptions-promisevoid" class="toc-link">registerSakkoComponent(ast: RootNode, options?: RegisterOptions): Promise&lt;void&gt;</a>
-        </li>
-      
-        <li class="toc-item toc-level-4">
-          <a href="#registeroptions" class="toc-link">RegisterOptions</a>
+          <a href="#rootnode-elementnode-inlinenode-listnode" class="toc-link">RootNode / ElementNode / InlineNode / ListNode</a>
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#getcomponentname-string-readonlyregisteredcomponent-undefined" class="toc-link">getComponent(name: string): Readonly&lt;RegisteredComponent&gt; | undefined</a>
+          <a href="#reactive-snippets" class="toc-link">Reactive snippets</a>
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#getallcomponents-readonlymapstring-readonlyregisteredcomponent" class="toc-link">getAllComponents(): ReadonlyMap&lt;string, Readonly&lt;RegisteredComponent&gt;&gt;</a>
+          <a href="#declaration-types" class="toc-link">Declaration types</a>
         </li>
       
-        <li class="toc-item toc-level-3">
-          <a href="#getcomponentsourcename-string-string-undefined" class="toc-link">getComponentSource(name: string): string | undefined</a>
-        </li>
-      
-        <li class="toc-item toc-level-3">
-          <a href="#registeredcomponent" class="toc-link">RegisteredComponent</a>
+        <li class="toc-item toc-level-2">
+          <a href="#re-exports" class="toc-link">Re-exports</a>
         </li>
       
     </ul>

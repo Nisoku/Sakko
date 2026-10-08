@@ -9,7 +9,7 @@
 
     <title>Sakko Documentation : Sakko</title>
     
-    <meta name="description" content="The modern DSL (Design Sub-Language) for describing UI trees">
+    <meta name="description" content="The modern DSL for describing UI trees">
     
 
     
@@ -183,15 +183,33 @@
             <div class="content-layout">
                 <div class="main-content">
                     <h1 id="sakko">Sakko</h1>
-<p>The modern DSL (Design Sub-Language) for describing UI trees. Sakko is a bracket-based markup language that compiles to component trees.</p>
+<p>Sakko is a bracket-based markup language that compiles to component trees for reactive UI. It is the front end of the S-eco stack: a typed document language, a strict expression sub-language (Sahō), and a compile-time typechecker, all Rust, all AOT.</p>
 <h2 id="quick-start">Quick start</h2>
-<pre class="hljs"><code><span class="hljs-keyword">import</span> { parseSakko, tokenize } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@nisoku/sakko&quot;</span>;
+<pre class="hljs"><code><span class="hljs-keyword">use</span> sakko::{parse_sakko, check_source};
 
-<span class="hljs-comment">// Tokenize Sakko source to tokens</span>
-<span class="hljs-keyword">const</span> tokens = <span class="hljs-title function_">tokenize</span>(<span class="hljs-string">&#x27;button(accent): Click me&#x27;</span>);
+<span class="hljs-keyword">fn</span> <span class="hljs-title function_">main</span>() {
+    <span class="hljs-comment">// Parse a .sako source string into a typed AST</span>
+    <span class="hljs-keyword">let</span> <span class="hljs-variable">ast</span> = <span class="hljs-title function_ invoke__">parse_sakko</span>(<span class="hljs-string">r#&quot;&lt;counter { @state { count = 0 } }&gt;&quot;#</span>)
+        .<span class="hljs-title function_ invoke__">expect</span>(<span class="hljs-string">&quot;parse failed&quot;</span>);
 
-<span class="hljs-comment">// Parse to AST</span>
-<span class="hljs-keyword">const</span> ast = <span class="hljs-title function_">parseSakko</span>(<span class="hljs-string">&#x27;&lt;page { button(accent): Click me }&gt;&#x27;</span>);
+    <span class="hljs-comment">// Typecheck the AST, which returns diagnostics + raw-JS escape records</span>
+    <span class="hljs-keyword">let</span> <span class="hljs-variable">report</span> = <span class="hljs-title function_ invoke__">check_source</span>(<span class="hljs-string">r#&quot;&lt;counter { @state { count = 0 } }&gt;&quot;#</span>)
+        .<span class="hljs-title function_ invoke__">expect</span>(<span class="hljs-string">&quot;parse failed&quot;</span>);
+
+    <span class="hljs-keyword">if</span> report.diagnostics.<span class="hljs-title function_ invoke__">is_empty</span>() {
+        <span class="hljs-built_in">println!</span>(<span class="hljs-string">&quot;Clean.&quot;</span>);
+    } <span class="hljs-keyword">else</span> {
+        <span class="hljs-keyword">for</span> <span class="hljs-variable">d</span> <span class="hljs-keyword">in</span> &amp;report.diagnostics {
+            <span class="hljs-built_in">eprintln!</span>(<span class="hljs-string">&quot;{}&quot;</span>, d.<span class="hljs-title function_ invoke__">render</span>());
+        }
+    }
+}
+</code></pre>
+<h3 id="lexing-only">Lexing only</h3>
+<pre class="hljs"><code><span class="hljs-keyword">use</span> sakko::tokenize;
+
+<span class="hljs-keyword">let</span> <span class="hljs-variable">tokens</span> = <span class="hljs-title function_ invoke__">tokenize</span>(<span class="hljs-string">&quot;button(accent): Save&quot;</span>)?;
+<span class="hljs-comment">// Vec&lt;Token&gt; with line/column tracking and interpolation splits</span>
 </code></pre>
 <h2 id="what-you-get">What you get</h2>
 <div class="table-wrapper"><table>
@@ -203,24 +221,28 @@
 </thead>
 <tbody>
 <tr>
-<td><strong>Tokenizer</strong></td>
-<td>Lexical analysis with line/column tracking</td>
+<td><strong>Lexer</strong></td>
+<td>Tokenizer with line/column tracking and <code>{expr}</code> string-interpolation splits</td>
 </tr>
 <tr>
-<td><strong>Parser</strong></td>
-<td>Full AST generation with error messages</td>
+<td><strong>Sahō parser</strong></td>
+<td>Pratt expression parser (strict JS subset): types, arrows, <code>js{}</code>, <code>as</code> assertions</td>
 </tr>
 <tr>
-<td><strong>Types</strong></td>
-<td>TypeScript definitions included</td>
+<td><strong>Structure parser</strong></td>
+<td>Recursive-descent parser for <code>&lt;name { ... }&gt;</code> documents</td>
 </tr>
 <tr>
-<td><strong>Zero deps</strong></td>
-<td>Pure TypeScript, no external dependencies</td>
+<td><strong>AST</strong></td>
+<td>Zero-copy via spans; serde on all token/AST types</td>
 </tr>
 <tr>
-<td><strong>Reactivity</strong></td>
-<td interpolation="">@state, @effect, @derived, @on:event, @bind,</td>
+<td><strong>Typechecker</strong></td>
+<td>Inference pass with stable diagnostic codes SKT001-SKT015</td>
+</tr>
+<tr>
+<td><strong>Reactive IR</strong></td>
+<td><code>@state</code>, <code>@derived</code>, <code>@effect</code>, <code>@on:event</code>, <code>@bind</code>, <code>@each</code>, <code>@if</code>, <code>@class</code></td>
 </tr>
 </tbody>
 </table>
@@ -262,7 +284,19 @@
 </tr>
 <tr>
 <td><code>{expr}</code></td>
-<td>Template interpolation</td>
+<td>Template interpolation (backtick or double-quoted strings)</td>
+</tr>
+<tr>
+<td><code>@if</code></td>
+<td>Conditional rendering inside handlers and effects</td>
+</tr>
+<tr>
+<td><code>@each</code></td>
+<td>List iteration</td>
+</tr>
+<tr>
+<td><code>@class=&quot;expr&quot;</code></td>
+<td>Dynamic class string or array</td>
 </tr>
 </tbody>
 </table>
@@ -277,11 +311,11 @@
 <tbody>
 <tr>
 <td><a href="/Sakko/language-reference/"><strong>Language Reference</strong></a></td>
-<td>Full Sakko syntax: blocks, modifiers, lists, void elements</td>
+<td>Full Sakko syntax: blocks, modifiers, lists, reactivity</td>
 </tr>
 <tr>
 <td><a href="/Sakko/api-reference/"><strong>API Reference</strong></a></td>
-<td>Complete public API: parseSakko, tokenize, types</td>
+<td>Public Rust API: parse_sakko, tokenize, check_source, types</td>
 </tr>
 </tbody>
 </table>
@@ -316,6 +350,10 @@
       
         <li class="toc-item toc-level-2">
           <a href="#quick-start" class="toc-link">Quick start</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#lexing-only" class="toc-link">Lexing only</a>
         </li>
       
         <li class="toc-item toc-level-2">

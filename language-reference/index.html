@@ -9,7 +9,7 @@
 
     <title>Sakko Language Reference : Sakko</title>
     
-    <meta name="description" content="Complete syntax guide for the Sakko bracket-based DSL">
+    <meta name="description" content="Complete syntax guide for the Sakko DSL">
     
 
     
@@ -183,143 +183,70 @@
             <div class="content-layout">
                 <div class="main-content">
                     <h1 id="sakko-language-reference">Sakko Language Reference</h1>
-<p>The Sakko DSL is a bracket-based markup language for describing UI trees. It compiles to Sazami component trees which render to the DOM.</p>
+<p>Sakko is a bracket-based markup language for describing UI trees. It compiles<br>
+to Sairin component trees, which render through Sazami. The expression<br>
+sub-language used inside reactive payloads is called <strong>Sahō</strong> (作法), which is a<br>
+strict, typechecked JavaScript subset.</p>
 <hr>
-<h2 id="file-extension">File Extension</h2>
+<h2 id="file-extension">File extension</h2>
 <p>Sakko files use the <code>.sako</code> extension.</p>
 <hr>
-<h2 id="syntax-overview">Syntax Overview</h2>
-<h3 id="root-blocks">Root Blocks</h3>
+<h2 id="syntax-overview">Syntax overview</h2>
+<h3 id="root-blocks">Root blocks</h3>
 <p>Every <code>.sako</code> file has one root block wrapped in angle brackets:</p>
 <pre class="hljs"><code>&lt;name {
   ...children
 }&gt;
 </code></pre>
-<blockquote>
-<p><strong>Note:</strong> The <code>compileSakko()</code> function auto-wraps source that is missing <code>&lt;&gt;</code> brackets, so both <code>&lt;card { ... }&gt;</code> and <code>card { ... }</code> work when using the API. However, always have the habit to add <code>&lt;&gt;</code> brackets.</p>
-<p>When you omit the angle brackets, the parser uses an internal sentinel name (<code>__sakko_wrapper__</code>) which appears in compiled output as the CSS class <code>__sakko_wrapper__</code>, component name <code>SakkoWrapper</code>, and any hashed IDs derived from that name. Always prefer explicit <code>&lt;tagname { ... }&gt;</code> syntax to avoid these internal names in your artifacts.</p>
-</blockquote>
+<p>The parser also accepts a bare <code>name { ... }</code> without angle brackets, using the<br>
+internal sentinel name <code>__sakko_wrapper__</code>. Prefer explicit <code>&lt;tagname { ... }&gt;</code><br>
+syntax to avoid internal names in your artifacts.</p>
 <p><strong>Example:</strong></p>
 <pre class="hljs"><code>&lt;page {
   card { text: Hello }
 }&gt;
 </code></pre>
-<h3 id="block-elements">Block Elements</h3>
+<h3 id="block-elements">Block elements</h3>
 <p>Block elements contain child elements inside curly braces:</p>
 <pre class="hljs"><code>element {
   child1: value
   child2 { ... }
 }
 </code></pre>
-<p><strong>Example:</strong></p>
-<pre class="hljs"><code>&lt;card {
-  text(bold): &quot;Title&quot;
-  text(dim): &quot;Subtitle&quot;
-  button: &quot;Click&quot;
-}&gt;
-</code></pre>
-<h3 id="inline-elements">Inline Elements</h3>
+<h3 id="inline-elements">Inline elements</h3>
 <p>Inline elements have no children: just a name, optional modifiers, and a value:</p>
 <pre class="hljs"><code>name: value
 name(modifiers): value
 </code></pre>
-<p><strong>Example:</strong></p>
-<pre class="hljs"><code>text: Hello
-button(accent large): Save
-icon: play
-</code></pre>
-<h3 id="void-elements">Void Elements</h3>
+<h3 id="void-elements">Void elements</h3>
 <p>Elements that need no value or children can stand alone:</p>
 <pre class="hljs"><code>divider;
 spacer(large);
 </code></pre>
-<p>These are parsed as inline elements with an empty value. Useful for separators, spacers, and structural markers.</p>
+<p>These are parsed as inline elements with an empty value.</p>
 <hr>
 <h2 id="modifiers">Modifiers</h2>
-<p>Modifiers are placed in parentheses after the element name. They configure the element’s appearance and behavior.</p>
-<h3 id="flags-boolean">Flags (Boolean)</h3>
+<p>Modifiers are placed in parentheses after the element name.</p>
+<h3 id="flags-boolean">Flags (boolean)</h3>
 <p>Space-separated tokens:</p>
 <pre class="hljs"><code>button(accent large bold): Save
 card(curved): { ... }
 text(dim small): Label
 </code></pre>
-<h3 id="key-value-pairs">Key-Value Pairs</h3>
-<p>Some tokens take a following value. Values can be bare identifiers or quoted strings:</p>
+<h3 id="key-value-pairs">Key-value pairs</h3>
+<p>Some tokens take a following value. Values can be bare identifiers or quoted<br>
+strings:</p>
 <pre class="hljs"><code>grid(cols 3 gap large): [...]
-row(gap medium): [...]
 input(placeholder &quot;Enter your name&quot; type &quot;email&quot;): &quot;&quot;
-image(src &quot;photo.jpg&quot; alt &quot;A photo&quot;): &quot;&quot;
 </code></pre>
-<p>The parser recognizes these keys as pairs: <code>cols</code>, <code>gap</code>, <code>radius</code>, <code>size</code>, <code>variant</code>, <code>layout</code>, <code>placeholder</code>, <code>type</code>, <code>src</code>, <code>alt</code>, <code>icon</code>, <code>label</code>, <code>value</code>, <code>center-point</code>, <code>min</code>, <code>max</code>, <code>step</code>, <code>name</code>, <code>heading</code>, <code>slot</code>, <code>active</code>, <code>open</code>, <code>message</code>, <code>title</code>, <code>disabled</code>, <code>checked</code>, <code>selected</code>, <code>removable</code>, <code>indeterminate</code>, <code>single-open</code>, <code>duration</code>, <code>no-close</code>, <code>shape</code>, <code>variant</code>, <code>required</code>, <code>placeholder</code>, <code>multiple</code>, <code>for</code>, <code>cols</code>, <code>md:cols</code>, <code>lg:cols</code>, <code>direction</code>.</p>
-<h3 id="modifier-categories">Modifier Categories</h3>
-<div class="table-wrapper"><table>
-<thead>
-<tr>
-<th>Category</th>
-<th>Values</th>
-<th>Maps To</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Variant</strong></td>
-<td><code>accent</code>, <code>primary</code>, <code>secondary</code>, <code>danger</code>, <code>success</code></td>
-<td><code>variant</code> attribute</td>
-</tr>
-<tr>
-<td><strong>Tone</strong></td>
-<td><code>dim</code>, <code>dimmer</code></td>
-<td><code>tone</code> attribute</td>
-</tr>
-<tr>
-<td><strong>Size</strong></td>
-<td><code>small</code>, <code>medium</code>, <code>large</code>, <code>xlarge</code></td>
-<td><code>size</code> attribute</td>
-</tr>
-<tr>
-<td><strong>Weight</strong></td>
-<td><code>bold</code>, <code>normal</code>, <code>light</code></td>
-<td><code>weight</code> attribute</td>
-</tr>
-<tr>
-<td><strong>Layout</strong></td>
-<td><code>row</code>, <code>column</code></td>
-<td><code>layout</code> attribute</td>
-</tr>
-<tr>
-<td><strong>Alignment</strong></td>
-<td><code>center</code>, <code>start</code>, <code>end</code></td>
-<td><code>align</code> attribute</td>
-</tr>
-<tr>
-<td><strong>Justify</strong></td>
-<td><code>space-between</code>, <code>space-around</code></td>
-<td><code>justify</code> attribute</td>
-</tr>
-<tr>
-<td><strong>Shape</strong></td>
-<td><code>round</code>, <code>square</code>, <code>pill</code></td>
-<td><code>shape</code> attribute</td>
-</tr>
-<tr>
-<td><strong>Curvomorphism</strong></td>
-<td><code>curved</code>, <code>flat</code></td>
-<td><code>curved</code> attribute</td>
-</tr>
-<tr>
-<td><strong>State</strong></td>
-<td><code>disabled</code>, <code>active</code>, <code>loading</code>, <code>checked</code></td>
-<td>boolean attributes</td>
-</tr>
-<tr>
-<td><strong>Wrap</strong></td>
-<td><code>wrap</code>, <code>nowrap</code></td>
-<td><code>wrap</code> attribute</td>
-</tr>
-</tbody>
-</table>
-</div><blockquote>
-<p><strong>Strict validation:</strong> Unknown modifier flags throw an error. If you need a custom modifier, add it to <code>MODIFIER_MAP</code> before use.</p>
+<p>The parser recognizes keys such as <code>cols</code>, <code>gap</code>, <code>radius</code>, <code>size</code>, <code>variant</code>,<br>
+<code>layout</code>, <code>placeholder</code>, <code>type</code>, <code>src</code>, <code>alt</code>, <code>icon</code>, <code>label</code>, <code>value</code>,<br>
+<code>min</code>, <code>max</code>, <code>step</code>, <code>name</code>, <code>heading</code>, <code>slot</code>, <code>active</code>, <code>open</code>, <code>message</code>,<br>
+<code>title</code>, <code>disabled</code>, <code>checked</code>, <code>selected</code>, <code>removable</code>, <code>required</code>,<br>
+<code>multiple</code>, <code>for</code>, <code>direction</code>, and responsive variants like <code>md:cols</code>.</p>
+<blockquote>
+<p><strong>Strict validation:</strong> Unknown modifier flags are errors. Custom modifiers can<br>
+be added to the recognized set.</p>
 </blockquote>
 <hr>
 <h2 id="lists">Lists</h2>
@@ -330,20 +257,14 @@ image(src &quot;photo.jpg&quot; alt &quot;A photo&quot;): &quot;&quot;
   card { text: Three }
 }&gt;
 </code></pre>
-<p>Lists can appear after a colon or directly:</p>
-<pre class="hljs"><code>row: {button: A, button: B}
+<p>Lists appear after a colon or directly:</p>
+<pre class="hljs"><code>row: [button: A, button: B]
 row {button: A, button: B}
 </code></pre>
-<hr>
-<h2 id="inline-siblings-with-semicolons">Inline Siblings with Semicolons</h2>
+<h3 id="inline-siblings-with-semicolons">Inline siblings with semicolons</h3>
 <p>Use semicolons to place multiple inline elements on one line:</p>
 <pre class="hljs"><code>&lt;controls {
   button: play; button: pause; badge(accent): LIVE
-}&gt;
-</code></pre>
-<p>Semicolons work at any nesting level, including root:</p>
-<pre class="hljs"><code>&lt;page {
-  text: A; text: B; text: C
 }&gt;
 </code></pre>
 <hr>
@@ -351,7 +272,13 @@ row {button: A, button: B}
 <ul>
 <li><strong>Bare words</strong> for simple values (no spaces): <code>text: Hello</code></li>
 <li><strong>Quoted strings</strong> for values with spaces or special characters: <code>text: &quot;Hello World&quot;</code></li>
+<li><strong>Interpolated strings</strong> in double quotes support <code>{expr}</code>:</li>
 </ul>
+<pre class="hljs"><code>text: &quot;Price = {price * qty}&quot;
+</code></pre>
+<p>In expression snippets (<code>@state</code>, <code>@derived</code>, etc.) both backtick<br>
+(<code>`Price = ${price}`</code>) and double-quote (<code>&quot;Price = {price}&quot;</code>) forms<br>
+interpolate.</p>
 <hr>
 <h2 id="comments">Comments</h2>
 <p>Single-line comments start with <code>//</code>:</p>
@@ -363,7 +290,8 @@ row {button: A, button: B}
 </code></pre>
 <hr>
 <h2 id="reactivity">Reactivity</h2>
-<p>Sakko supports inline reactivity through atcodes. These compile to Sairin signals for reactive UI.</p>
+<p>Sakko supports inline reactivity through atcode declarations. These compile to<br>
+Sairin signals for reactive UI.</p>
 <h3 id="state">State</h3>
 <p>Declare reactive state with <code>@state</code>:</p>
 <pre class="hljs"><code>&lt;counter {
@@ -371,118 +299,200 @@ row {button: A, button: B}
     count = 0
     step = 1
   }
-  
+
   text: &quot;Count: {count}&quot;
 }&gt;
 </code></pre>
-<p>The <code>@state</code> block declares variables that can be read and written. Values are initialized with JavaScript expressions.</p>
-<h3 id="derived-state">Derived State</h3>
+<p><code>@state</code> declares variables that can be read and written. Values are<br>
+initialized with Sahō expressions. Types may be annotated with <code>as</code>:</p>
+<pre class="hljs"><code>@state {
+  count = 0
+  label = &quot;x&quot; as string
+}
+</code></pre>
+<h3 id="derived-state">Derived state</h3>
 <p>Compute derived values with <code>@derived</code>:</p>
 <pre class="hljs"><code>&lt;app {
   @state { items = [] }
   @derived {
     count = items.length
-    isEmpty = items.length === 0
+    isEmpty = items.length == 0
   }
   text: &quot;{count} items&quot;
 }&gt;
 </code></pre>
-<p>Derived values automatically update when their dependencies change.</p>
+<p>Derived values are computed (immutable); reassigning one is an error<br>
+(SKT012).</p>
 <h3 id="effects">Effects</h3>
 <p>Run side effects with <code>@effect</code>:</p>
 <pre class="hljs"><code>&lt;app {
   @state { count = 0 }
-  
+
   @effect {
     console.log(&quot;Count changed:&quot;, count)
-    document.title = `Count: ${count}`
+    js { document.title = `Count: ${count}` }
   }
-  
+
   button @on:click { count++ }: &quot;Increment&quot;
 }&gt;
 </code></pre>
-<p>Effects run when any referenced state changes.</p>
-<h3 id="event-handlers">Event Handlers</h3>
+<p><code>document</code>/<code>window</code> are <strong>not</strong> in the global manifest. DOM access like<br>
+<code>document.title</code> works only inside <code>js { ... }</code> escape blocks.<br>
+Effects run when any referenced state changes.</p>
+<h3 id="event-handlers">Event handlers</h3>
 <p>Handle DOM events with <code>@on:event</code>:</p>
 <pre class="hljs"><code>button @on:click { count++ }: &quot;Click&quot;
 input @on:input { value = e.target.value }: &quot;&quot;
-div @on:mouseenter { isHovered = true }: &quot;Hover&quot;
 </code></pre>
-<p>The handler body is JavaScript. Reference state directly and use <code>.set()</code> to update.</p>
-<h3 id="two-way-binding">Two-way Binding</h3>
+<p>The handler body is Sahō. The event parameter <code>e</code> has type <code>unknown</code>;<br>
+navigation and calls on <code>unknown</code> are free, and you may assert its shape with<br>
+<code>as</code>.</p>
+<h3 id="two-way-binding">Two-way binding</h3>
 <p>Bind input elements with <code>@bind</code>:</p>
 <pre class="hljs"><code>&lt;input @bind=&quot;username&quot;: &quot;&quot;&gt;
 &lt;checkbox @bind=&quot;checked&quot;: &quot;&quot;&gt;
 &lt;select @bind=&quot;value&quot;: &quot;&quot;&gt;
 </code></pre>
-<p>The bound signal syncs automatically with the input value.</p>
-<h3 id="reactive-classes">Reactive Classes</h3>
+<p>The bound signal syncs automatically with the input value. <code>@bind</code> must target<br>
+a <code>@state</code> variable (SKT008 otherwise).</p>
+<h3 id="conditionals-if">Conditionals (<code>@if</code>)</h3>
+<p><code>if</code> statements are supported inside handlers and <code>@effect</code> bodies:</p>
+<pre class="hljs"><code>button @on:click {
+  email = email.trim()
+  if emailValid {
+    submitted = true
+  } else {
+    error = &quot;Invalid email&quot;
+  }
+}: &quot;Submit&quot;
+</code></pre>
+<h3 id="iteration-each">Iteration (<code>@each</code>)</h3>
+<p>Iterate over an array with <code>@each=&quot;item in source&quot;</code>:</p>
+<pre class="hljs"><code>&lt;todo {
+  @state {
+    items = []
+    visible = []
+  }
+
+  column(gap small) @each=&quot;item in visible&quot;: [
+    row @on:click { item.done = !item.done }:
+      [checkbox(checked = item.done), text: item.text]
+  ]
+}&gt;
+</code></pre>
+<p>The loop variable is typed from the array’s element type.</p>
+<h3 id="reactive-classes">Reactive classes</h3>
 <p>Add dynamic CSS classes with <code>@class</code>:</p>
-<pre class="hljs"><code>&lt;div @class=&quot;theme&quot;&gt;
-  content
-&lt;/div&gt;
+<pre class="hljs"><code>&lt;div @class=&quot;theme&quot;&gt;content&lt;/div&gt;
+&lt;button @class={isActive ? &quot;active&quot; : &quot;inactive&quot;}&gt;...&lt;/button&gt;
 </code></pre>
 <p>The <code>@class</code> directive accepts:</p>
 <ul>
-<li>A string: <code>text: &quot;bold&quot;</code></li>
-<li>An array: <code>text: [&quot;bold&quot;, &quot;large&quot;]</code></li>
-<li>An object: <code>text: { active: isActive, disabled: isDisabled }</code></li>
+<li>A <strong>string</strong> expression: <code>@class=&quot;theme&quot;</code></li>
+<li>An <strong>array</strong> of class names: <code>@class=[&quot;bold&quot;, &quot;large&quot;]</code></li>
+<li>A <strong>braced</strong> expression: <code>@class={theme}</code>, <code>@class={count &gt; 5 ? &quot;warn&quot; : &quot;&quot;}</code></li>
 </ul>
-<p>Class changes are reflected immediately on the element.</p>
+<p>The value is typechecked as a class-string (string or array of strings,<br>
+SKT015 otherwise). Class changes are reflected immediately on the element.</p>
+<blockquote>
+<p><strong>Note:</strong> object-form <code>@class={ key: cond }</code> is not supported and produces<br>
+SKT015. Use a <code>@derived</code> string/array expression instead.</p>
+</blockquote>
 <h3 id="interpolation">Interpolation</h3>
 <p>Use <code>{expression}</code> in text values:</p>
 <pre class="hljs"><code>text: &quot;Hello, {name}!&quot;
 text: &quot;{a} + {b} = {a + b}&quot;
 text: &quot;Items: {items.length}&quot;
 </code></pre>
-<p>Interpolation compiles to effects that update the text when dependencies change.</p>
+<p>Interpolation compiles to effects that update the text when dependencies<br>
+change.</p>
 <hr>
-<h2 id="complete-example">Complete Example</h2>
-<pre class="hljs"><code>&lt;player {
-  // Main card with horizontal layout
-  card(row medium center curved) {
-    coverart(round): &quot;album.jpg&quot;
-
-    details(column gap small) {
-      text(bold large): &quot;Midnight City&quot;
-      text(dim): &quot;M83&quot;
-      badge(accent): &quot;Synthwave&quot;
+<h2 id="sah-expression-language">Sahō expression language</h2>
+<p>The embedded expression language is a strict JS subset.</p>
+<h3 id="equality-is-always-strict">Equality is always strict</h3>
+<p><code>==</code> / <code>!=</code> are the only comparison operators and are <strong>strict</strong> (no coerced<br>
+comparison). <code>===</code> and <code>!==</code> are hard errors: “Saho equality is always strict;<br>
+use ‘==’”.</p>
+<h3 id="unknown-and-as-assertions">Unknown and <code>as</code> assertions</h3>
+<p>Values from dynamic sources (<code>e</code>, <code>js { }</code>, API data) have type <code>unknown</code>:</p>
+<ul>
+<li>Navigation (<code>.prop</code>, <code>[i]</code>) and calls on <code>unknown</code> are <strong>free</strong> (result<br>
+<code>unknown</code>).</li>
+<li>Arithmetic, comparisons, and typed assignment require an <code>as</code> assertion<br>
+first.</li>
+<li>New postfix type assertions:</li>
+</ul>
+<pre class="hljs"><code>x as number
+items as string[]
+maybe as string | null
+obj as { width: number, height: number }
+</code></pre>
+<p>Impossible casts between disjoint concrete types are rejected (SKT014).</p>
+<h3 id="js-escape-hatch"><code>js { }</code> escape hatch</h3>
+<p><code>js { ... }</code> is the Rust-<code>unsafe</code> analogy: the body is emitted byte-for-byte,<br>
+always types as <code>unknown</code>, and is recorded in the compile report<br>
+(<code>Report::js_escapes</code>) for audits. Use it for code Sahō cannot express:</p>
+<pre class="hljs"><code>@state {
+  screen = js {
+    if (typeof window !== &quot;undefined&quot;) {
+      return { width: window.innerWidth, height: window.innerHeight }
     }
-
-    controls(row gap small) {
-      icon-btn: previous;
-      icon-btn(accent large): play;
-      icon-btn: next
-    }
+    return { width: 0, height: 0 }
+  } as { width: number, height: number }
+}
+</code></pre>
+<p>The body is syntax-validated at build time (never semantically checked).</p>
+<h3 id="builtins">Builtins</h3>
+<p><code>console</code>, <code>Math</code>, <code>JSON</code>, <code>Number</code>, <code>String</code>, <code>Array</code> methods, plus <code>fetch</code>,<br>
+<code>setTimeout</code>, <code>clearTimeout</code>, <code>setInterval</code>, <code>clearInterval</code>. DOM globals are<br>
+reachable only through <code>js { }</code>.</p>
+<hr>
+<h2 id="complete-example">Complete example</h2>
+<pre class="hljs"><code>&lt;todo {
+  @state {
+    input = &quot;&quot;
+    items = []
+    filter = &quot;all&quot;
   }
 
-  // Queue section
-  card(curved medium) {
-    heading: &quot;Up Next&quot;
+  @derived {
+    remaining = items.filter(item =&gt; !item.done).length
+    visible = filter == &quot;active&quot;
+      ? items.filter(item =&gt; !item.done)
+      : filter == &quot;done&quot;
+        ? items.filter(item =&gt; item.done)
+        : items
+  }
 
-    column(gap small): [
-      row(space-between gap medium) {
-        text: &quot;Track 1&quot;
-        text(dim small): &quot;3:45&quot;
-      },
-      row(space-between gap medium) {
-        text: &quot;Track 2&quot;
-        text(dim small): &quot;4:12&quot;
-      }
+  heading(xlarge): &quot;Todos&quot;
+
+  column(gap small): [
+    row(gap small): [
+      input @bind=&quot;input&quot; placeholder=&quot;What needs doing?&quot;: &quot;&quot;,
+      button(accent) @on:click {
+        input = input.trim()
+        if input != &quot;&quot; {
+          items.push({ text: input, done: false })
+          input = &quot;&quot;
+        }
+      }: &quot;Add&quot;
+    ],
+    row: [
+      button(filter == &quot;all&quot; ? accent : none) @on:click { filter = &quot;all&quot; }: &quot;All&quot;,
+      button(filter == &quot;active&quot; ? accent : none) @on:click { filter = &quot;active&quot; }: &quot;Active&quot;,
+      button(filter == &quot;done&quot; ? accent : none) @on:click { filter = &quot;done&quot; }: &quot;Done&quot;
+    ],
+    text(dim small): &quot;{remaining} remaining&quot;,
+    column(gap small) @each=&quot;item in visible&quot;: [
+      row @on:click { item.done = !item.done }:
+        [checkbox checked=&quot;item.done&quot;, text(item.done ? &quot;strikethrough&quot; : &quot;&quot;): item.text]
     ]
-  }
-
-  // Bottom controls
-  row(space-between gap large) {
-    button(dim): Library
-    button(accent): Discover
-    button(dim): Settings
-  }
+  ]
 }&gt;
 </code></pre>
 <hr>
-<h2 id="ast-output">AST Output</h2>
-<p>The parser produces an AST with these node types:</p>
+<h2 id="ast-output">AST output</h2>
+<p>The parser produces an AST with node types derived from the document language:</p>
 <div class="table-wrapper"><table>
 <thead>
 <tr>
@@ -493,28 +503,30 @@ text: &quot;Items: {items.length}&quot;
 </thead>
 <tbody>
 <tr>
-<td><code>root</code></td>
-<td><code>name</code>, <code>modifiers</code>, <code>children</code></td>
+<td><code>RootNode</code></td>
+<td><code>name</code>, <code>modifiers</code>, <code>declarations</code>, <code>children</code></td>
 <td>Top-level container</td>
 </tr>
 <tr>
-<td><code>element</code></td>
+<td><code>ElementNode</code></td>
 <td><code>name</code>, <code>modifiers</code>, <code>children</code></td>
 <td>Block element with children</td>
 </tr>
 <tr>
-<td><code>inline</code></td>
+<td><code>InlineNode</code></td>
 <td><code>name</code>, <code>modifiers</code>, <code>value</code></td>
 <td>Leaf element with text value</td>
 </tr>
 <tr>
-<td><code>list</code></td>
+<td><code>ListNode</code></td>
 <td><code>items</code></td>
 <td>Comma-separated group</td>
 </tr>
 </tbody>
 </table>
-</div><p>Modifiers are either <code>{ type: &quot;flag&quot;, value: string }</code> or <code>{ type: &quot;pair&quot;, key: string, value: string }</code>.</p>
+</div><p>Reactive payloads are pre-parsed into typed <code>ExprSnippet</code> / <code>BlockSnippet</code><br>
+nodes at parse time; the typechecker walks them directly.</p>
+<p>Modifiers are <code>{ type: &quot;flag&quot;, value }</code> or <code>{ type: &quot;pair&quot;, key, value }</code>.</p>
 
 
                     
@@ -553,27 +565,27 @@ text: &quot;Items: {items.length}&quot;
     <ul class="toc-list">
       
         <li class="toc-item toc-level-2">
-          <a href="#file-extension" class="toc-link">File Extension</a>
+          <a href="#file-extension" class="toc-link">File extension</a>
         </li>
       
         <li class="toc-item toc-level-2">
-          <a href="#syntax-overview" class="toc-link">Syntax Overview</a>
+          <a href="#syntax-overview" class="toc-link">Syntax overview</a>
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#root-blocks" class="toc-link">Root Blocks</a>
+          <a href="#root-blocks" class="toc-link">Root blocks</a>
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#block-elements" class="toc-link">Block Elements</a>
+          <a href="#block-elements" class="toc-link">Block elements</a>
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#inline-elements" class="toc-link">Inline Elements</a>
+          <a href="#inline-elements" class="toc-link">Inline elements</a>
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#void-elements" class="toc-link">Void Elements</a>
+          <a href="#void-elements" class="toc-link">Void elements</a>
         </li>
       
         <li class="toc-item toc-level-2">
@@ -581,23 +593,19 @@ text: &quot;Items: {items.length}&quot;
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#flags-boolean" class="toc-link">Flags (Boolean)</a>
+          <a href="#flags-boolean" class="toc-link">Flags (boolean)</a>
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#key-value-pairs" class="toc-link">Key-Value Pairs</a>
-        </li>
-      
-        <li class="toc-item toc-level-3">
-          <a href="#modifier-categories" class="toc-link">Modifier Categories</a>
+          <a href="#key-value-pairs" class="toc-link">Key-value pairs</a>
         </li>
       
         <li class="toc-item toc-level-2">
           <a href="#lists" class="toc-link">Lists</a>
         </li>
       
-        <li class="toc-item toc-level-2">
-          <a href="#inline-siblings-with-semicolons" class="toc-link">Inline Siblings with Semicolons</a>
+        <li class="toc-item toc-level-3">
+          <a href="#inline-siblings-with-semicolons" class="toc-link">Inline siblings with semicolons</a>
         </li>
       
         <li class="toc-item toc-level-2">
@@ -617,7 +625,7 @@ text: &quot;Items: {items.length}&quot;
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#derived-state" class="toc-link">Derived State</a>
+          <a href="#derived-state" class="toc-link">Derived state</a>
         </li>
       
         <li class="toc-item toc-level-3">
@@ -625,15 +633,23 @@ text: &quot;Items: {items.length}&quot;
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#event-handlers" class="toc-link">Event Handlers</a>
+          <a href="#event-handlers" class="toc-link">Event handlers</a>
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#two-way-binding" class="toc-link">Two-way Binding</a>
+          <a href="#two-way-binding" class="toc-link">Two-way binding</a>
         </li>
       
         <li class="toc-item toc-level-3">
-          <a href="#reactive-classes" class="toc-link">Reactive Classes</a>
+          <a href="#conditionals-if" class="toc-link">Conditionals (@if)</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#iteration-each" class="toc-link">Iteration (@each)</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#reactive-classes" class="toc-link">Reactive classes</a>
         </li>
       
         <li class="toc-item toc-level-3">
@@ -641,11 +657,31 @@ text: &quot;Items: {items.length}&quot;
         </li>
       
         <li class="toc-item toc-level-2">
-          <a href="#complete-example" class="toc-link">Complete Example</a>
+          <a href="#sah-expression-language" class="toc-link">Sahō expression language</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#equality-is-always-strict" class="toc-link">Equality is always strict</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#unknown-and-as-assertions" class="toc-link">Unknown and as assertions</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#js-escape-hatch" class="toc-link">js { } escape hatch</a>
+        </li>
+      
+        <li class="toc-item toc-level-3">
+          <a href="#builtins" class="toc-link">Builtins</a>
         </li>
       
         <li class="toc-item toc-level-2">
-          <a href="#ast-output" class="toc-link">AST Output</a>
+          <a href="#complete-example" class="toc-link">Complete example</a>
+        </li>
+      
+        <li class="toc-item toc-level-2">
+          <a href="#ast-output" class="toc-link">AST output</a>
         </li>
       
     </ul>
