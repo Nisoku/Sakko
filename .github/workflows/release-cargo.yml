@@ -1,0 +1,76 @@
+name: Release crates.io
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run cargo publish with --dry-run'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      packages:
+        description: 'Which crates to publish (for retrying individual packages)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - 'all'
+          - 'sakko'
+          - 'sakko-wasm'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      # On a release event only, publish for real. Dispatches default to dry-run.
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == 'true' || false }}
+      DO_SAKKO: ${{ github.event_name != 'workflow_dispatch' || inputs.packages == 'all' || inputs.packages == 'sakko' }}
+      DO_WASM: ${{ github.event_name != 'workflow_dispatch' || inputs.packages == 'all' || inputs.packages == 'sakko-wasm' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Authenticate with crates.io
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: Publish sakko
+        if: env.DO_SAKKO == 'true'
+        run: cargo publish -p sakko ${{ env.DRY_RUN == 'true' && '--dry-run' || '' }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
+      - name: Wait for sakko in the crates.io index
+        if: env.DO_SAKKO == 'true' && env.DO_WASM == 'true' && env.DRY_RUN != 'true'
+        run: |
+          version="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "sakko") | .version')"
+          for attempt in $(seq 1 30); do
+            if cargo search sakko --limit 5 2>/dev/null | grep -q "^sakko = \"${version}\""; then
+              echo "sakko ${version} is available in the index"
+              exit 0
+            fi
+            echo "sakko ${version} not in the index yet (attempt ${attempt}/30); sleeping 10s"
+            sleep 10
+          done
+          echo "sakko ${version} did not appear in the crates.io index in time" >&2
+          exit 1
+
+      - name: Publish sakko-wasm
+        if: env.DO_WASM == 'true'
+        run: cargo publish -p sakko-wasm ${{ env.DRY_RUN == 'true' && '--dry-run' || '' }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}

@@ -1,0 +1,32 @@
+{
+  "name": "@nisoku/sakko",
+  "version": "0.1.6",
+  "description": "Sakko, the modern DSL (Design Sub-Language)",
+  "type": "module",
+  "main": "wasm/sakko_wasm.js",
+  "types": "wasm/sakko_wasm.d.ts",
+  "files": [
+    "wasm"
+  ],
+  "scripts": {
+    "prepublishOnly": "cp ../../../README.md . && cp ../../../LICENSE .",
+    "postpublish": "rm -f README.md LICENSE"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nisoku/Sakko.git"
+  },
+  "keywords": [
+    "sakko",
+    "dsl",
+    "design",
+    "compiler",
+    "nisoku"
+  ],
+  "author": "Nisoku (https://nisoku.org)",
+  "bugs": {
+    "url": "https://github.com/Nisoku/Sakko/issues"
+  },
+  "homepage": "https://github.com/Nisoku/Sakko"
+}

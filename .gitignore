@@ -3,3 +3,8 @@
 
 # Docs site build output
 site/
+
+# npm package generated output
+crates/sakko-wasm/npm/wasm/
+crates/sakko-wasm/npm/README.md
+crates/sakko-wasm/npm/LICENSE
