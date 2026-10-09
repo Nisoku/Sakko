@@ -36,7 +36,7 @@ jobs:
       DO_SAKKO: ${{ github.event_name != 'workflow_dispatch' || inputs.packages == 'all' || inputs.packages == 'sakko' }}
       DO_WASM: ${{ github.event_name != 'workflow_dispatch' || inputs.packages == 'all' || inputs.packages == 'sakko-wasm' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
