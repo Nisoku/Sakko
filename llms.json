@@ -1,0 +1,24 @@
+{
+  "title": "Sakko",
+  "description": "",
+  "pages": [
+    {
+      "title": "API Reference",
+      "url": "https://nisoku.org/S/docs/api-reference/",
+      "description": "Public Rust API for the sakko crate",
+      "priority": "medium"
+    },
+    {
+      "title": "Sakko Documentation",
+      "url": "https://nisoku.org/S/docs/",
+      "description": "The modern DSL for describing UI trees",
+      "priority": "high"
+    },
+    {
+      "title": "Sakko Language Reference",
+      "url": "https://nisoku.org/S/docs/language-reference/",
+      "description": "Complete syntax guide for the Sakko DSL",
+      "priority": "medium"
+    }
+  ]
+}

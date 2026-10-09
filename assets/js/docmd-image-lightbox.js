@@ -1,10 +1,104 @@
-/*! Source file from the docmd project — https://github.com/docmd-io/docmd */
+/**
+ * --------------------------------------------------------------------
+ * docmd : the zero-config documentation engine.
+ *
+ * @package     @docmd/core (and ecosystem)
+ * @website     https://docmd.io
+ * @repository  https://github.com/docmd-io/docmd
+ * @license     MIT
+ * @copyright   Copyright (c) 2025-present docmd.io
+ *
+ * [docmd-source] - Please do not remove this header.
+ * --------------------------------------------------------------------
+ */
 
+/* 
+ * A simple lightbox implementation for gallery images
+ */
 
-document.addEventListener("DOMContentLoaded",function(){const t=document.createElement("div");t.className="docmd-lightbox",t.innerHTML=`
-    <div class="docmd-lightbox-content">
-      <img src="" alt="">
-      <div class="docmd-lightbox-caption"></div>
-    </div>
-    <div class="docmd-lightbox-close">&times;</div>
-  `,document.body.appendChild(t);const l=t.querySelector("img"),d=t.querySelector(".docmd-lightbox-caption"),s=t.querySelector(".docmd-lightbox-close");document.querySelectorAll("img.lightbox, .image-gallery img").forEach(function(e){e.style.cursor="zoom-in",e.addEventListener("click",function(){const r=this.getAttribute("src");let i=this.getAttribute("alt")||"";const c=this.closest("figure");if(c){const n=c.querySelector("figcaption");n&&(i=n.textContent)}l.setAttribute("src",r),d.textContent=i,t.style.display="flex",document.body.style.overflow="hidden"})}),s.addEventListener("click",o),t.addEventListener("click",function(e){e.target===t&&o()}),document.addEventListener("keydown",function(e){e.key==="Escape"&&t.style.display==="flex"&&o()});function o(){t.style.display="none",document.body.style.overflow=""}});
+document.addEventListener('DOMContentLoaded', function () {
+  // Create lightbox elements
+  const lightbox = document.createElement('div');
+  lightbox.className = 'docmd-lightbox';
+  const content = document.createElement('div');
+  content.className = 'docmd-lightbox-content';
+  const img = document.createElement('img');
+  img.src = '';
+  img.alt = '';
+  const caption = document.createElement('div');
+  caption.className = 'docmd-lightbox-caption';
+  content.appendChild(img);
+  content.appendChild(caption);
+
+  const close = document.createElement('button');
+  close.className = 'docmd-lightbox-close';
+  close.setAttribute('aria-label', 'Close lightbox');
+  close.innerHTML = '&times;'; // Hardcoded entity is safe
+
+  // Place close button inside content so it positions relative to the image box
+  content.appendChild(close);
+  lightbox.appendChild(content);
+  document.body.appendChild(lightbox);
+
+  const lightboxImg = lightbox.querySelector('img');
+  const lightboxCaption = lightbox.querySelector('.docmd-lightbox-caption');
+  const lightboxClose = lightbox.querySelector('.docmd-lightbox-close');
+
+  // Apply zoom-in cursor to all current lightbox images
+  function applyLightboxCursor() {
+    document.querySelectorAll('img.lightbox, .image-gallery img').forEach(function (img) {
+      img.style.cursor = 'zoom-in';
+    });
+  }
+
+  // Apply cursor on initial load and after each SPA navigation
+  applyLightboxCursor();
+  document.addEventListener('docmd:page-mounted', applyLightboxCursor);
+
+  // Use event delegation so lightbox works after SPA navigation without re-binding
+  document.addEventListener('click', function (e) {
+    const img = e.target.closest('img.lightbox, .image-gallery img');
+    if (!img) return;
+
+    // Get the image source and caption
+    const src = img.getAttribute('src');
+    let caption = img.getAttribute('alt') || '';
+
+    // If image is inside a figure with figcaption, use that caption
+    const figure = img.closest('figure');
+    if (figure) {
+      const figcaption = figure.querySelector('figcaption');
+      if (figcaption) {
+        caption = figcaption.textContent;
+      }
+    }
+
+    // Set the lightbox content
+    lightboxImg.setAttribute('src', src);
+    lightboxCaption.textContent = caption;
+
+    // Show the lightbox
+    lightbox.style.display = 'flex';
+    document.body.style.overflow = 'hidden'; // Prevent scrolling
+  });
+
+  // Close lightbox when clicking the close button or outside the image
+  lightboxClose.addEventListener('click', closeLightbox);
+  lightbox.addEventListener('click', function (e) {
+    if (e.target === lightbox) {
+      closeLightbox();
+    }
+  });
+
+  // Close lightbox when pressing Escape key
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && lightbox.style.display === 'flex') {
+      closeLightbox();
+    }
+  });
+
+  function closeLightbox() {
+    lightbox.style.display = 'none';
+    document.body.style.overflow = ''; // Restore scrolling
+  }
+}); 

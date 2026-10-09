@@ -1,0 +1,55 @@
+{
+  "okf_version": "0.9.7",
+  "bundle": {
+    "name": "sakko",
+    "title": "Sakko",
+    "description": "",
+    "url": "https://nisoku.org/S/docs",
+    "generated_by": "@docmd/plugin-okf",
+    "generated_at": "2026-10-09T07:49:12.570Z",
+    "default_type": "concept"
+  },
+  "stats": {
+    "concepts": 3,
+    "by_type": {
+      "concept": 3
+    },
+    "locales": [],
+    "versions": []
+  },
+  "concepts": [
+    {
+      "id": "api-reference",
+      "type": "concept",
+      "title": "API Reference",
+      "description": "Public Rust API for the sakko crate",
+      "path": "/api-reference/",
+      "file": "concepts/api-reference.md",
+      "locale": "",
+      "version": "",
+      "tags": []
+    },
+    {
+      "id": "root",
+      "type": "concept",
+      "title": "Sakko Documentation",
+      "description": "The modern DSL for describing UI trees",
+      "path": "/",
+      "file": "concepts/root.md",
+      "locale": "",
+      "version": "",
+      "tags": []
+    },
+    {
+      "id": "language-reference",
+      "type": "concept",
+      "title": "Sakko Language Reference",
+      "description": "Complete syntax guide for the Sakko DSL",
+      "path": "/language-reference/",
+      "file": "concepts/language-reference.md",
+      "locale": "",
+      "version": "",
+      "tags": []
+    }
+  ]
+}

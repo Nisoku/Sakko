@@ -1,0 +1,6 @@
+[WARN] missing-type /api-reference/  (using fallback 'concept')
+[WARN] missing-type /  (using fallback 'concept')
+[WARN] missing-type /language-reference/  (using fallback 'concept')
+[WARN] orphan-concept api-reference  (no inbound links)
+[WARN] orphan-concept root  (no inbound links)
+[WARN] orphan-concept language-reference  (no inbound links)
