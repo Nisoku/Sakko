@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## [0.1.6] - 2026-10-08
+## [1.0.0] - 2026-10-08
 
 Sakko is rewritten from scratch as a Rust workspace. The TypeScript
 implementation is gone: `Build/`, the Vite/Jest setup, the old goldens and
@@ -45,6 +45,6 @@ suites, and the browser bindings are all Rust now.
 - The TypeScript compiler and its toolchain (`Build/`, Vite, Jest, ESLint, and
   the npm release workflow).
 
-## [0.1.5] - 2026-06-09
+## [0.1.5] and before - 2026-06-09
 
-Initial public release.
+Initial public releases.
