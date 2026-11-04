@@ -7,7 +7,7 @@ path: /
 updated: 2026-11-04
 okf:
   generated_by: "@docmd/plugin-okf"
-  generated_at: "2026-11-04T19:44:00.269Z"
+  generated_at: "2026-11-04T19:44:07.747Z"
 ---
 ---
 title: "Sakko Documentation"

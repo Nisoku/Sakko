@@ -7,7 +7,7 @@ path: /language-reference/
 updated: 2026-11-04
 okf:
   generated_by: "@docmd/plugin-okf"
-  generated_at: "2026-11-04T19:44:00.270Z"
+  generated_at: "2026-11-04T19:44:07.748Z"
 ---
 ---
 title: "Sakko Language Reference"
