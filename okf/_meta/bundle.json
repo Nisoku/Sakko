@@ -1,12 +1,12 @@
 {
-  "okf_version": "0.9.7",
+  "okf_version": "0.9.8",
   "bundle": {
     "name": "sakko",
     "title": "Sakko",
     "description": "",
     "url": "https://nisoku.org/S/docs",
     "generated_by": "@docmd/plugin-okf",
-    "generated_at": "2026-10-09T09:00:50.307Z",
+    "generated_at": "2026-11-04T19:43:35.769Z",
     "default_type": "concept"
   },
   "stats": {

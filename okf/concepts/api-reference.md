@@ -4,10 +4,10 @@ title: "API Reference"
 description: "Public Rust API for the sakko crate"
 source: "https://nisoku.org/S/docs/api-reference/"
 path: /api-reference/
-updated: 2026-10-09
+updated: 2026-11-04
 okf:
   generated_by: "@docmd/plugin-okf"
-  generated_at: "2026-10-09T09:00:50.306Z"
+  generated_at: "2026-11-04T19:43:35.766Z"
 ---
 ---
 title: "API Reference"

@@ -4,10 +4,10 @@ title: "Sakko Documentation"
 description: "The modern DSL for describing UI trees"
 source: "https://nisoku.org/S/docs/"
 path: /
-updated: 2026-10-09
+updated: 2026-11-04
 okf:
   generated_by: "@docmd/plugin-okf"
-  generated_at: "2026-10-09T09:00:50.306Z"
+  generated_at: "2026-11-04T19:43:35.767Z"
 ---
 ---
 title: "Sakko Documentation"

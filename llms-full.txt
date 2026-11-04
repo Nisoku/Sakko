@@ -4,7 +4,7 @@
 
 ---
 
-## [API Reference](https://nisoku.org/S/docs/api-reference/)
+## [API Reference](https://nisoku.org/S/docs/api-reference/) (API Reference)
 
 ---
 title: "API Reference"
@@ -349,7 +349,7 @@ Sakko compiles to Sairin signals for reactive UI:
 
 ---
 
-## [Sakko Language Reference](https://nisoku.org/S/docs/language-reference/)
+## [Sakko Language Reference](https://nisoku.org/S/docs/language-reference/) (Language Reference)
 
 ---
 title: "Sakko Language Reference"
