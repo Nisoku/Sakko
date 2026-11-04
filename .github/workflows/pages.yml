@@ -13,7 +13,7 @@ jobs:
 
       # Build everything
       - name: Use Node.js 20
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '20.19.0'
 
