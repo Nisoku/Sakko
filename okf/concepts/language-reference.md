@@ -4,10 +4,10 @@ title: "Sakko Language Reference"
 description: "Complete syntax guide for the Sakko DSL"
 source: "https://nisoku.org/S/docs/language-reference/"
 path: /language-reference/
-updated: 2026-11-04
+updated: 2026-11-12
 okf:
   generated_by: "@docmd/plugin-okf"
-  generated_at: "2026-11-04T19:44:07.748Z"
+  generated_at: "2026-11-12T09:52:41.546Z"
 ---
 ---
 title: "Sakko Language Reference"
